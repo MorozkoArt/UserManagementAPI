@@ -113,5 +113,150 @@ public class UsersController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpPut("{login}/login")]
+    public IActionResult UpdateLogin(string login, UserLoginUpdateDto dto)
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized("Authentication required");
+            }
+
+            var userToUpdate = _userManager.GetByLogin(login);
+            if (userToUpdate == null)
+            {
+                return NotFound("User not found");
+            }
+            
+
+            if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
+            {
+                return Unauthorized("You can only update your own active account");
+            }
+
+            var updatedUser = _userManager.UpdateLogin(login, dto.NewLogin, currentUser.Login);
+            return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating login for user {Login}", login);
+            return BadRequest(ex.Message);
+        }
+    }
+    #endregion
+
+    #region Read
+    [HttpGet]
+    public IActionResult GetAllActiveUsers()
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null || !currentUser.Admin)
+            {
+                return Unauthorized("Only admin can get all active users");
+            }
+
+            var users = _userManager.GetAllActiveUsers()
+                .Select(u => new UserAdminResponseDto
+                {
+                    Login = u.Login,
+                    Name = u.Name,
+                    Gender = u.Gender,
+                    Birthday = u.Birthday,
+                    IsActive = u.IsActive,
+                    CreatedOn = u.CreatedOn,
+                    CreatedBy = u.CreatedBy,
+                    ModifiedOn = u.ModifiedOn,
+                    ModifiedBy = u.ModifiedBy,
+                    RevokedOn = u.RevokedOn,
+                    RevokedBy = u.RevokedBy
+                });
+
+            return Ok(users);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all active users");
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("{login}")]
+    public IActionResult GetUserByLogin(string login)
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null || !currentUser.Admin)
+            {
+                return Unauthorized("Only admin can get user by login");
+            }
+
+            var user = _userManager.GetByLogin(login);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var response = new UserAdminResponseDto
+            {
+                Login = user.Login,
+                Name = user.Name,
+                Gender = user.Gender,
+                Birthday = user.Birthday,
+                IsActive = user.IsActive,
+                CreatedOn = user.CreatedOn,
+                CreatedBy = user.CreatedBy,
+                ModifiedOn = user.ModifiedOn,
+                ModifiedBy = user.ModifiedBy,
+                RevokedOn = user.RevokedOn,
+                RevokedBy = user.RevokedBy
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting user by login {Login}", login);
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("self")]
+    public IActionResult GetCurrentUserInfo()
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized("Authentication required");
+            }
+
+            if (!currentUser.IsActive)
+            {
+                return Unauthorized("Your account is inactive");
+            }
+
+            var response = new UserResponseDto
+            {
+                Name = currentUser.Name,
+                Gender = currentUser.Gender,
+                Birthday = currentUser.Birthday,
+                IsActive = currentUser.IsActive
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting current user info");
+            return BadRequest(ex.Message);
+        }
+    }
     #endregion
 }
