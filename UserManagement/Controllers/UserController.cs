@@ -258,5 +258,89 @@ public class UsersController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+    
+
+    [HttpGet("older-than/{age}")]
+    public IActionResult GetUsersOlderThan(int age)
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null || !currentUser.Admin)
+            {
+                return Unauthorized("Only admin can get users older than specified age");
+            }
+
+            var users = _userManager.GetUsersOlderThan(age)
+                .Select(u => new UserAdminResponseDto
+                {
+                    Login = u.Login,
+                    Name = u.Name,
+                    Gender = u.Gender,
+                    Birthday = u.Birthday,
+                    IsActive = u.IsActive,
+                    CreatedOn = u.CreatedOn,
+                    CreatedBy = u.CreatedBy,
+                    ModifiedOn = u.ModifiedOn,
+                    ModifiedBy = u.ModifiedBy,
+                    RevokedOn = u.RevokedOn,
+                    RevokedBy = u.RevokedBy
+                });
+
+            return Ok(users);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting users older than {Age}", age);
+            return BadRequest(ex.Message);
+        }
+    }
+    #endregion
+
+    #region Delete
+    [HttpDelete("{login}")]
+    public IActionResult DeleteUser(string login, [FromQuery] bool softDelete = true)
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null || !currentUser.Admin)
+            {
+                return Unauthorized("Only admin can delete users");
+            }
+
+            _userManager.DeleteUser(login, currentUser.Login, softDelete);
+            return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting user {Login}", login);
+            return BadRequest(ex.Message);
+        }
+    }
+    #endregion
+
+    #region Update-2
+    [HttpPatch("{login}/restore")]
+    public IActionResult RestoreUser(string login)
+    {
+        try
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null || !currentUser.Admin)
+            {
+                return Unauthorized("Only admin can restore users");
+            }
+
+            var restoredUser = _userManager.RestoreUser(login, currentUser.Login);
+            return Ok(new { restoredUser.Name, restoredUser.IsActive });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error restoring user {Login}", login);
+            return BadRequest(ex.Message);
+        }
+    }
     #endregion
 }
+
