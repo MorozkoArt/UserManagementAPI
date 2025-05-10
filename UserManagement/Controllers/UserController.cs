@@ -312,17 +312,17 @@ public class UsersController : ControllerBase
 
     #region Delete
     [HttpDelete("{login}")]
-    public IActionResult DeleteUser(string login, [FromQuery] bool softDelete = true)
+    public async Task<IActionResult> DeleteUser(string login, [FromQuery] bool softDelete = true)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can delete users");
             }
 
-            _userManager.DeleteUser(login, currentUser.Login, softDelete);
+            await _userManager.DeleteUserAsync(login, currentUser.Login, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
         }
         catch (Exception ex)
@@ -333,19 +333,19 @@ public class UsersController : ControllerBase
     }
     #endregion
 
-    #region Update-2
+    #region Restore
     [HttpPatch("{login}/restore")]
-    public IActionResult RestoreUser(string login)
+    public async Task<IActionResult> RestoreUser(string login)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can restore users");
             }
 
-            var restoredUser = _userManager.RestoreUser(login, currentUser.Login);
+            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser.Login);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
         }
         catch (Exception ex)
