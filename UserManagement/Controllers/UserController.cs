@@ -18,27 +18,27 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    private User? GetCurrentUser()
+    private async Task<User?> GetCurrentUserAsync()
     {
         var login = HttpContext.Items["UserLogin"] as string;
-        return login != null ? _userManager.GetByLogin(login) : null;
+        return login != null ? await _userManager.GetByLoginAsync(login) : null;
     }
 
     private bool IsAdmin(User? user) => user?.Admin ?? false;
 
     #region Create
     [HttpPost]
-    public IActionResult CreateUser(UserCreateDto dto)
+    public async Task<IActionResult> CreateUser(UserCreateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can create users");
             }
 
-            var user = _userManager.CreateUser(dto, currentUser.Login);
+            var user = await _userManager.CreateUserAsync(dto, currentUser.Login);
             return Ok(new { user.Id, user.Login });
         }
         catch (Exception ex)
