@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using UserManagement.Middleware;
 using UserManagement.Services;
 
@@ -35,7 +36,25 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddSingleton<UserManager>();
-builder.Services.AddLogging();
+builder.Services.AddMemoryCache();
+builder.Services.AddHealthChecks();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    });
+});
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+builder.Services.AddLogging(loggingBuilder =>
+{
+    loggingBuilder.AddConsole();
+    loggingBuilder.AddDebug();
+    loggingBuilder.SetMinimumLevel(LogLevel.Information);
+});
 
 var app = builder.Build();
 
@@ -46,9 +65,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<BasicAuthMiddleware>();
-
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+app.UseResponseCompression();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
