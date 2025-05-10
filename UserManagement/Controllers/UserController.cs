@@ -49,19 +49,19 @@ public class UsersController : ControllerBase
     }
     #endregion
 
-    #region Update-1
+    #region Update
     [HttpPut("{login}")]
-    public IActionResult UpdateUser(string login, UserUpdateDto dto)
+    public async Task<IActionResult> UpdateUser(string login, UserUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
 
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
@@ -72,7 +72,7 @@ public class UsersController : ControllerBase
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdateUser(login, dto, currentUser.Login);
+            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser.Login);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
         catch (Exception ex)
@@ -83,17 +83,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{login}/password")]
-    public IActionResult UpdatePassword(string login, UserPasswordUpdateDto dto)
+    public async Task<IActionResult> UpdatePassword(string login, UserPasswordUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
 
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
@@ -104,7 +104,7 @@ public class UsersController : ControllerBase
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdatePassword(login, dto.NewPassword, currentUser.Login);
+            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser.Login);
             return Ok(new { Message = "Password updated successfully" });
         }
         catch (Exception ex)
@@ -115,29 +115,27 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{login}/login")]
-    public IActionResult UpdateLogin(string login, UserLoginUpdateDto dto)
+    public async Task<IActionResult> UpdateLogin(string login, UserLoginUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
-
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
             }
-            
 
             if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
             {
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdateLogin(login, dto.NewLogin, currentUser.Login);
+            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser.Login);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
         }
         catch (Exception ex)
