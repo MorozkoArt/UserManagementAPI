@@ -148,33 +148,40 @@ public class UsersController : ControllerBase
 
     #region Read
     [HttpGet]
-    public IActionResult GetAllActiveUsers()
+    public async Task<IActionResult> GetAllActiveUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get all active users");
             }
 
-            var users = _userManager.GetAllActiveUsers()
-                .Select(u => new UserAdminResponseDto
-                {
-                    Login = u.Login,
-                    Name = u.Name,
-                    Gender = u.Gender,
-                    Birthday = u.Birthday,
-                    IsActive = u.IsActive,
-                    CreatedOn = u.CreatedOn,
-                    CreatedBy = u.CreatedBy,
-                    ModifiedOn = u.ModifiedOn,
-                    ModifiedBy = u.ModifiedBy,
-                    RevokedOn = u.RevokedOn,
-                    RevokedBy = u.RevokedBy
-                });
+            var result = await _userManager.GetAllActiveUsersPaginatedAsync(page, pageSize);
+            var users = result.Items.Select(u => new UserAdminResponseDto
+            {
+                Login = u.Login,
+                Name = u.Name,
+                Gender = u.Gender,
+                Birthday = u.Birthday,
+                IsActive = u.IsActive,
+                CreatedOn = u.CreatedOn,
+                CreatedBy = u.CreatedBy,
+                ModifiedOn = u.ModifiedOn,
+                ModifiedBy = u.ModifiedBy,
+                RevokedOn = u.RevokedOn,
+                RevokedBy = u.RevokedBy
+            });
 
-            return Ok(users);
+            return Ok(new 
+            {
+                Data = users,
+                Page = result.PageNumber,
+                PageSize = result.PageSize,
+                TotalCount = result.TotalCount,
+                TotalPages = result.TotalPages
+            });
         }
         catch (Exception ex)
         {
@@ -184,17 +191,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{login}")]
-    public IActionResult GetUserByLogin(string login)
+    public async Task<IActionResult> GetUserByLogin(string login)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get user by login");
             }
 
-            var user = _userManager.GetByLogin(login);
+            var user = await _userManager.GetByLoginCachedAsync(login);
             if (user == null)
             {
                 return NotFound("User not found");
@@ -225,11 +232,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("self")]
-    public IActionResult GetCurrentUserInfo()
+    public async Task<IActionResult> GetCurrentUserInfo()
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
@@ -239,7 +246,6 @@ public class UsersController : ControllerBase
             {
                 return Unauthorized("Your account is inactive");
             }
-
             var response = new UserResponseDto
             {
                 Name = currentUser.Name,
@@ -256,20 +262,22 @@ public class UsersController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
-    
 
     [HttpGet("older-than/{age}")]
-    public IActionResult GetUsersOlderThan(int age)
+    public async Task<IActionResult> GetUsersOlderThan(int age, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get users older than specified age");
             }
 
-            var users = _userManager.GetUsersOlderThan(age)
+            var users = await _userManager.GetUsersOlderThanAsync(age);
+            var paginatedUsers = users
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(u => new UserAdminResponseDto
                 {
                     Login = u.Login,
@@ -285,7 +293,14 @@ public class UsersController : ControllerBase
                     RevokedBy = u.RevokedBy
                 });
 
-            return Ok(users);
+            return Ok(new
+            {
+                Data = paginatedUsers,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = users.Count(),
+                TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
+            });
         }
         catch (Exception ex)
         {
