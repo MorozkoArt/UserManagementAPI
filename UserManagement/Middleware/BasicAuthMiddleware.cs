@@ -52,7 +52,7 @@ public class BasicAuthMiddleware
             var login = decodedCredentials[..separatorIndex];
             var password = decodedCredentials[(separatorIndex + 1)..];
 
-            var user = userManager.GetByCredentials(login, password);
+            var user = await userManager.GetByCredentialsAsync(login, password);
             if (user == null)
             {
                 context.Response.StatusCode = 401;
