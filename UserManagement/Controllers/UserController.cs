@@ -18,27 +18,27 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    private User? GetCurrentUser()
+    private async Task<User?> GetCurrentUserAsync()
     {
         var login = HttpContext.Items["UserLogin"] as string;
-        return login != null ? _userManager.GetByLogin(login) : null;
+        return login != null ? await _userManager.GetByLoginAsync(login) : null;
     }
 
     private bool IsAdmin(User? user) => user?.Admin ?? false;
 
     #region Create
     [HttpPost]
-    public IActionResult CreateUser(UserCreateDto dto)
+    public async Task<IActionResult> CreateUser(UserCreateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can create users");
             }
 
-            var user = _userManager.CreateUser(dto, currentUser.Login);
+            var user = await _userManager.CreateUserAsync(dto, currentUser.Login);
             return Ok(new { user.Id, user.Login });
         }
         catch (Exception ex)
@@ -49,19 +49,19 @@ public class UsersController : ControllerBase
     }
     #endregion
 
-    #region Update-1
+    #region Update
     [HttpPut("{login}")]
-    public IActionResult UpdateUser(string login, UserUpdateDto dto)
+    public async Task<IActionResult> UpdateUser(string login, UserUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
 
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
@@ -72,7 +72,7 @@ public class UsersController : ControllerBase
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdateUser(login, dto, currentUser.Login);
+            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser.Login);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
         catch (Exception ex)
@@ -83,17 +83,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{login}/password")]
-    public IActionResult UpdatePassword(string login, UserPasswordUpdateDto dto)
+    public async Task<IActionResult> UpdatePassword(string login, UserPasswordUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
 
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
@@ -104,7 +104,7 @@ public class UsersController : ControllerBase
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdatePassword(login, dto.NewPassword, currentUser.Login);
+            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser.Login);
             return Ok(new { Message = "Password updated successfully" });
         }
         catch (Exception ex)
@@ -115,29 +115,27 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{login}/login")]
-    public IActionResult UpdateLogin(string login, UserLoginUpdateDto dto)
+    public async Task<IActionResult> UpdateLogin(string login, UserLoginUpdateDto dto)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
             }
-
-            var userToUpdate = _userManager.GetByLogin(login);
+            var userToUpdate = await _userManager.GetByLoginAsync(login);
             if (userToUpdate == null)
             {
                 return NotFound("User not found");
             }
-            
 
             if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
             {
                 return Unauthorized("You can only update your own active account");
             }
 
-            var updatedUser = _userManager.UpdateLogin(login, dto.NewLogin, currentUser.Login);
+            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser.Login);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
         }
         catch (Exception ex)
@@ -150,33 +148,40 @@ public class UsersController : ControllerBase
 
     #region Read
     [HttpGet]
-    public IActionResult GetAllActiveUsers()
+    public async Task<IActionResult> GetAllActiveUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get all active users");
             }
 
-            var users = _userManager.GetAllActiveUsers()
-                .Select(u => new UserAdminResponseDto
-                {
-                    Login = u.Login,
-                    Name = u.Name,
-                    Gender = u.Gender,
-                    Birthday = u.Birthday,
-                    IsActive = u.IsActive,
-                    CreatedOn = u.CreatedOn,
-                    CreatedBy = u.CreatedBy,
-                    ModifiedOn = u.ModifiedOn,
-                    ModifiedBy = u.ModifiedBy,
-                    RevokedOn = u.RevokedOn,
-                    RevokedBy = u.RevokedBy
-                });
+            var result = await _userManager.GetAllActiveUsersPaginatedAsync(page, pageSize);
+            var users = result.Items.Select(u => new UserAdminResponseDto
+            {
+                Login = u.Login,
+                Name = u.Name,
+                Gender = u.Gender,
+                Birthday = u.Birthday,
+                IsActive = u.IsActive,
+                CreatedOn = u.CreatedOn,
+                CreatedBy = u.CreatedBy,
+                ModifiedOn = u.ModifiedOn,
+                ModifiedBy = u.ModifiedBy,
+                RevokedOn = u.RevokedOn,
+                RevokedBy = u.RevokedBy
+            });
 
-            return Ok(users);
+            return Ok(new 
+            {
+                Data = users,
+                Page = result.PageNumber,
+                PageSize = result.PageSize,
+                TotalCount = result.TotalCount,
+                TotalPages = result.TotalPages
+            });
         }
         catch (Exception ex)
         {
@@ -186,17 +191,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{login}")]
-    public IActionResult GetUserByLogin(string login)
+    public async Task<IActionResult> GetUserByLogin(string login)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get user by login");
             }
 
-            var user = _userManager.GetByLogin(login);
+            var user = await _userManager.GetByLoginCachedAsync(login);
             if (user == null)
             {
                 return NotFound("User not found");
@@ -227,11 +232,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("self")]
-    public IActionResult GetCurrentUserInfo()
+    public async Task<IActionResult> GetCurrentUserInfo()
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null)
             {
                 return Unauthorized("Authentication required");
@@ -241,7 +246,6 @@ public class UsersController : ControllerBase
             {
                 return Unauthorized("Your account is inactive");
             }
-
             var response = new UserResponseDto
             {
                 Name = currentUser.Name,
@@ -258,20 +262,22 @@ public class UsersController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
-    
 
     [HttpGet("older-than/{age}")]
-    public IActionResult GetUsersOlderThan(int age)
+    public async Task<IActionResult> GetUsersOlderThan(int age, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can get users older than specified age");
             }
 
-            var users = _userManager.GetUsersOlderThan(age)
+            var users = await _userManager.GetUsersOlderThanAsync(age);
+            var paginatedUsers = users
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(u => new UserAdminResponseDto
                 {
                     Login = u.Login,
@@ -287,7 +293,14 @@ public class UsersController : ControllerBase
                     RevokedBy = u.RevokedBy
                 });
 
-            return Ok(users);
+            return Ok(new
+            {
+                Data = paginatedUsers,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = users.Count(),
+                TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
+            });
         }
         catch (Exception ex)
         {
@@ -299,17 +312,17 @@ public class UsersController : ControllerBase
 
     #region Delete
     [HttpDelete("{login}")]
-    public IActionResult DeleteUser(string login, [FromQuery] bool softDelete = true)
+    public async Task<IActionResult> DeleteUser(string login, [FromQuery] bool softDelete = true)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can delete users");
             }
 
-            _userManager.DeleteUser(login, currentUser.Login, softDelete);
+            await _userManager.DeleteUserAsync(login, currentUser.Login, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
         }
         catch (Exception ex)
@@ -320,19 +333,19 @@ public class UsersController : ControllerBase
     }
     #endregion
 
-    #region Update-2
+    #region Restore
     [HttpPatch("{login}/restore")]
-    public IActionResult RestoreUser(string login)
+    public async Task<IActionResult> RestoreUser(string login)
     {
         try
         {
-            var currentUser = GetCurrentUser();
+            var currentUser = await GetCurrentUserAsync();
             if (currentUser == null || !currentUser.Admin)
             {
                 return Unauthorized("Only admin can restore users");
             }
 
-            var restoredUser = _userManager.RestoreUser(login, currentUser.Login);
+            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser.Login);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
         }
         catch (Exception ex)
