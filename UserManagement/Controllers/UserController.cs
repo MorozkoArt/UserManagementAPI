@@ -9,10 +9,10 @@ namespace UserManagement.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly UserManager _userManager;
+    private readonly IUserManager _userManager;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserManager userManager, ILogger<UsersController> logger)
+    public UsersController(IUserManager userManager, ILogger<UsersController> logger)
     {
         _userManager = userManager;
         _logger = logger;

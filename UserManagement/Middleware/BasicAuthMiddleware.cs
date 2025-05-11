@@ -13,7 +13,7 @@ public class BasicAuthMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, UserManager userManager)
+    public async Task InvokeAsync(HttpContext context, IUserManager userManager)
     {
         if (context.Request.Path.StartsWithSegments("/swagger"))
         {
