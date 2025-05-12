@@ -63,7 +63,7 @@ public sealed class UserManager : IUserManager
                 .Where(u => u.IsActive)
                 .OrderBy(u => u.CreatedOn)
                 .ToList());
-        }) ?? new List<User>();
+        }) ?? [];
     }
 
     public async Task<List<User>> GetAllUsersAsync()
@@ -74,7 +74,7 @@ public sealed class UserManager : IUserManager
             return Task.FromResult(_users.Values
                 .OrderBy(u => u.CreatedOn)
                 .ToList());
-        }) ?? new List<User>();
+        }) ?? [];
     }
 
     public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age)

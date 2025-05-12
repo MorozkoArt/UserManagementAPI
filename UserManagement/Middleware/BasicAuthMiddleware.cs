@@ -2,16 +2,10 @@ using UserManagement.Services;
 
 namespace UserManagement.Middleware;
 
-public class BasicAuthMiddleware
+public class BasicAuthMiddleware(RequestDelegate next, ILogger<BasicAuthMiddleware> logger)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<BasicAuthMiddleware> _logger;
-
-    public BasicAuthMiddleware(RequestDelegate next, ILogger<BasicAuthMiddleware> logger)
-    {
-        _next = next;
-        _logger = logger;
-    }
+    private readonly RequestDelegate _next = next;
+    private readonly ILogger<BasicAuthMiddleware> _logger = logger;
 
     public async Task InvokeAsync(HttpContext context, IUserManager userManager)
     {
@@ -21,7 +15,7 @@ public class BasicAuthMiddleware
             return;
         }
 
-        if (!context.Request.Headers.ContainsKey("Authorization"))
+        if (!context.Request.Headers.TryGetValue("Authorization", out Microsoft.Extensions.Primitives.StringValues value))
         {
             context.Response.StatusCode = 401;
             await context.Response.WriteAsync("Authorization header missing");
@@ -30,7 +24,7 @@ public class BasicAuthMiddleware
 
         try
         {
-            var authHeader = context.Request.Headers["Authorization"].ToString();
+            var authHeader = value.ToString();
             if (!authHeader.StartsWith("Basic "))
             {
                 context.Response.StatusCode = 401;

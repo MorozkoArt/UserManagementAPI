@@ -7,16 +7,10 @@ namespace UserManagement.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public partial class UserController : ControllerBase
+public partial class UserController(IUserManager userManager, ILogger<UserController> logger) : ControllerBase
 {
-    private readonly IUserManager _userManager;
-    private readonly ILogger<UserController> _logger;
-
-    public UserController(IUserManager userManager, ILogger<UserController> logger)
-    {
-        _userManager = userManager;
-        _logger = logger;
-    }
+    private readonly IUserManager _userManager = userManager;
+    private readonly ILogger<UserController> _logger = logger;
 
     private async Task<User?> GetCurrentUserAsync()
     {
