@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 using UserManagement.Models;
 using UserManagement.Models.Dtos;
+using UserManagement.Utilities;
 
 namespace UserManagement.Services;
 
@@ -26,7 +26,7 @@ public sealed class UserManager : IUserManager
         var admin = new User
         {
             Login = "Admin",
-            Password = "Admin123",
+            Password = PasswordHasher.HashPassword("Admin123"),
             Name = "System Administrator",
             Gender = 1,
             Birthday = null,
@@ -105,7 +105,7 @@ public sealed class UserManager : IUserManager
     {
         return await Task.FromResult(
             _users.TryGetValue(login, out var user) && 
-            user.Password == password && 
+            PasswordHasher.VerifyPassword(password, user.Password) && 
             user.IsActive ? user : null);
     }
 
@@ -131,7 +131,7 @@ public sealed class UserManager : IUserManager
             var user = new User
             {
                 Login = dto.Login,
-                Password = dto.Password,
+                Password = PasswordHasher.HashPassword(dto.Password),
                 Name = dto.Name,
                 Gender = dto.Gender,
                 Birthday = dto.Birthday,
@@ -188,7 +188,7 @@ public sealed class UserManager : IUserManager
             var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
             UserValidation.ValidatePassword(newPassword);
 
-            user.Password = newPassword;
+            user.Password = PasswordHasher.HashPassword(newPassword);;
             user.ModifiedOn = DateTime.UtcNow;
             user.ModifiedBy = modifiedBy;
             InvalidateCaches(login);
