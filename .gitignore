@@ -1,3 +1,36 @@
-UserManagement/bin/
-UserManagement/obj/
-UserManagement/.vscode/
+# === Игнорируем бинарные файлы и сборки ===
+[Bb]in/
+[Oo]bj/
+
+# === Файлы IDE и редакторов ===
+.vs/        
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# === Зависимости NuGet ===
+**/[Pp]ackages/*
+!.nuget/
+*.nupkg
+nuget.exe
+
+# === Временные файлы и логи ===
+*.log
+*.tmp
+*.bak
+*.swp
+
+# === Результаты тестов ===
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+
+# === Entity Framework Core ===
+**/Migrations/*.Designer.cs
+
+# === Файлы Rider (если используется) ===
+.idea/
+
+# === Docker (если используется) ===
+docker-compose.override.yml

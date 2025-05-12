@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using UserManagement.Models;
 using UserManagement.Models.Dtos;
-using System.Text.RegularExpressions;
 
 namespace UserManagement.Services;
 
-public sealed partial class UserManager
+public sealed class UserManager : IUserManager
 {
     private readonly Dictionary<string, User> _users = [];
     private readonly ILogger<UserManager> _logger;
@@ -42,9 +42,9 @@ public sealed partial class UserManager
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10)
     {
         var allUsers = await GetAllActiveUsersAsync();
-        var totalCount = allUsers.Count();
+        var totalCount = allUsers.Count;
         
-        pageSize = Math.Min(pageSize, 100); // Максимум 100 на страницу, возможно потом нужно будет изменить
+        pageSize = Math.Min(pageSize, 100);
         
         var items = allUsers
             .Skip((pageNumber - 1) * pageSize)
@@ -56,29 +56,25 @@ public sealed partial class UserManager
 
     public async Task<List<User>> GetAllActiveUsersAsync()
     {
-        var result = _cache.GetOrCreate(AllActiveUsersCacheKey, entry =>
+        return await _cache.GetOrCreateAsync(AllActiveUsersCacheKey, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
-            return _users.Values
+            return Task.FromResult(_users.Values
                 .Where(u => u.IsActive)
                 .OrderBy(u => u.CreatedOn)
-                .ToList();
-        });
-        
-        return await Task.FromResult(result ?? new List<User>());
+                .ToList());
+        }) ?? [];
     }
 
     public async Task<List<User>> GetAllUsersAsync()
     {
-        var result = _cache.GetOrCreate(AllUsersCacheKey, entry =>
+        return await _cache.GetOrCreateAsync(AllUsersCacheKey, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
-            return _users.Values
+            return Task.FromResult(_users.Values
                 .OrderBy(u => u.CreatedOn)
-                .ToList();
-        });
-        
-        return await Task.FromResult(result ?? new List<User>());
+                .ToList());
+        }) ?? [];
     }
 
     public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age)
@@ -87,8 +83,7 @@ public sealed partial class UserManager
         return await Task.FromResult(
             _users.Values
                 .Where(u => u.Birthday.HasValue && u.Birthday.Value.Date <= cutoffDate)
-                .OrderBy(u => u.CreatedOn)
-                .ToList());
+                .OrderBy(u => u.CreatedOn));
     }
 
     public async Task<User?> GetByLoginAsync(string login)
@@ -119,7 +114,6 @@ public sealed partial class UserManager
         return await Task.FromResult(_users.ContainsKey(login));
     }
 
-
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
         return await Task.Run(() =>
@@ -127,14 +121,12 @@ public sealed partial class UserManager
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(createdBy);
 
-            ValidateLogin(dto.Login);
-            ValidatePassword(dto.Password);
-            ValidateName(dto.Name);
+            UserValidation.ValidateLogin(dto.Login);
+            UserValidation.ValidatePassword(dto.Password);
+            UserValidation.ValidateName(dto.Name);
 
             if (_users.ContainsKey(dto.Login))
-            {
                 throw new ArgumentException("Login already exists");
-            }
 
             var user = new User
             {
@@ -167,19 +159,15 @@ public sealed partial class UserManager
 
             if (!string.IsNullOrEmpty(dto.Name))
             {
-                ValidateName(dto.Name);
+                UserValidation.ValidateName(dto.Name);
                 user.Name = dto.Name;
             }
 
             if (dto.Gender.HasValue)
-            {
                 user.Gender = dto.Gender.Value;
-            }
 
             if (dto.Birthday.HasValue)
-            {
                 user.Birthday = dto.Birthday;
-            }
 
             user.ModifiedOn = DateTime.UtcNow;
             user.ModifiedBy = modifiedBy;
@@ -198,7 +186,7 @@ public sealed partial class UserManager
             ArgumentNullException.ThrowIfNull(modifiedBy);
 
             var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
-            ValidatePassword(newPassword);
+            UserValidation.ValidatePassword(newPassword);
 
             user.Password = newPassword;
             user.ModifiedOn = DateTime.UtcNow;
@@ -218,12 +206,10 @@ public sealed partial class UserManager
             ArgumentNullException.ThrowIfNull(modifiedBy);
 
             var user = _users.TryGetValue(oldLogin, out var u) ? u : throw new KeyNotFoundException("User not found");
-            ValidateLogin(newLogin);
+            UserValidation.ValidateLogin(newLogin);
 
             if (_users.ContainsKey(newLogin))
-            {
                 throw new ArgumentException("New login already exists");
-            }
 
             _users.Remove(oldLogin);
             user.Login = newLogin;
@@ -237,7 +223,6 @@ public sealed partial class UserManager
             return user;
         });
     }
-
 
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
@@ -290,41 +275,6 @@ public sealed partial class UserManager
         _cache.Remove(AllUsersCacheKey);
         
         foreach (var login in logins)
-        {
             _cache.Remove($"user_{login}");
-        }
     }
-
-    private static void ValidateLogin(string login)
-    {
-        if (string.IsNullOrWhiteSpace(login) || !LoginRegex().IsMatch(login))
-        {
-            throw new ArgumentException("Login can only contain Latin letters and numbers");
-        }
-    }
-
-    private static void ValidatePassword(string password)
-    {
-        if (string.IsNullOrWhiteSpace(password) || !PasswordRegex().IsMatch(password))
-        {
-            throw new ArgumentException("Password can only contain Latin letters and numbers");
-        }
-    }
-
-    private static void ValidateName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name) || !NameRegex().IsMatch(name))
-        {
-            throw new ArgumentException("Name can only contain Russian and Latin letters");
-        }
-    }
-
-    [GeneratedRegex(@"^[a-zA-Z0-9]+$", RegexOptions.CultureInvariant | RegexOptions.Compiled)]
-    private static partial Regex LoginRegex();
-
-    [GeneratedRegex(@"^[a-zA-Z0-9]+$", RegexOptions.CultureInvariant | RegexOptions.Compiled)]
-    private static partial Regex PasswordRegex();
-
-    [GeneratedRegex(@"^[a-zA-Zа-яА-ЯёЁ\s]+$", RegexOptions.CultureInvariant | RegexOptions.Compiled)]
-    private static partial Regex NameRegex();
 }
