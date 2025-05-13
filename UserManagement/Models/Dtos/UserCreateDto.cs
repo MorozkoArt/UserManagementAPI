@@ -20,7 +20,7 @@ public class UserCreateDto
     [RegularExpression(@"^[a-zA-Zа-яА-ЯёЁ\s\-]+$", ErrorMessage = "The name can only contain letters, spaces, and hyphens")]
     public required string Name { get; set; }
 
-    [RegularExpression(@"^[0-2]+$", ErrorMessage = "The gender value can contain only 3 values (0 - women, 1 - man, 2 - unknown)")]
+    [RegularExpression(@"^[0-2]+$", ErrorMessage = "The gender value can contain only 3 values (0 - unknown, 1 - man, 2 - women)")]
     public int Gender { get; set; }
     public DateTime? Birthday { get; set; }
     public bool Admin { get; set; }

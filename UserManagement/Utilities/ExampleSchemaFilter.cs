@@ -35,7 +35,7 @@ public class ExampleSchemaFilter : ISchemaFilter
         {
             schema.Example = new OpenApiObject
             {
-                ["login"] = new OpenApiString("user123"),
+                ["newlogin"] = new OpenApiString("user123"),
             };
         }
 
@@ -43,7 +43,7 @@ public class ExampleSchemaFilter : ISchemaFilter
         {
             schema.Example = new OpenApiObject
             {
-                ["password"] = new OpenApiString("SecurePass123!"),
+                ["newPassword"] = new OpenApiString("SecurePass123!"),
             };
         }
     }
