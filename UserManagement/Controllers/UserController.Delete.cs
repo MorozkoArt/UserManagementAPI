@@ -15,6 +15,10 @@ public partial class UserController
             await _userManager.DeleteUserAsync(login, currentUser.Login, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(DeleteUser));

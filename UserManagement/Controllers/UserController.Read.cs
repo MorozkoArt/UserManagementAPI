@@ -71,6 +71,7 @@ public partial class UserController
                 IsActive = currentUser.IsActive
             });
         }
+        
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetCurrentUserInfo));

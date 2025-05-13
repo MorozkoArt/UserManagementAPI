@@ -15,6 +15,10 @@ public partial class UserController
             var restoredUser = await _userManager.RestoreUserAsync(login, currentUser.Login);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(RestoreUser));

@@ -26,7 +26,7 @@ public sealed class UserManager : IUserManager
         var admin = new User
         {
             Login = "Admin",
-            Password = PasswordHasher.HashPassword("Admin123"),
+            HashPassword = PasswordHasher.HashPassword("Admin_123"),
             Name = "System Administrator",
             Gender = 1,
             Birthday = null,
@@ -105,13 +105,8 @@ public sealed class UserManager : IUserManager
     {
         return await Task.FromResult(
             _users.TryGetValue(login, out var user) && 
-            PasswordHasher.VerifyPassword(password, user.Password) && 
+            PasswordHasher.VerifyPassword(password, user.HashPassword) && 
             user.IsActive ? user : null);
-    }
-
-    public async Task<bool> LoginExistsAsync(string login)
-    {
-        return await Task.FromResult(_users.ContainsKey(login));
     }
 
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
@@ -121,17 +116,17 @@ public sealed class UserManager : IUserManager
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(createdBy);
 
-            UserValidation.ValidateLogin(dto.Login);
-            UserValidation.ValidatePassword(dto.Password);
-            UserValidation.ValidateName(dto.Name);
-
-            if (_users.ContainsKey(dto.Login))
-                throw new ArgumentException("Login already exists");
+            var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
+            if (!loginValid) throw new ArgumentException(loginError);
+            var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
+            if (!passValid) throw new ArgumentException(passError);
+            var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
+            if (!nameValid) throw new ArgumentException(nameError);
 
             var user = new User
             {
                 Login = dto.Login,
-                Password = PasswordHasher.HashPassword(dto.Password),
+                HashPassword = PasswordHasher.HashPassword(dto.Password),
                 Name = dto.Name,
                 Gender = dto.Gender,
                 Birthday = dto.Birthday,
@@ -157,11 +152,9 @@ public sealed class UserManager : IUserManager
 
             var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
 
-            if (!string.IsNullOrEmpty(dto.Name))
-            {
-                UserValidation.ValidateName(dto.Name);
-                user.Name = dto.Name;
-            }
+            var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
+            if (!nameValid) throw new ArgumentException(nameError);
+            else user.Name = dto.Name;
 
             if (dto.Gender.HasValue)
                 user.Gender = dto.Gender.Value;
@@ -186,9 +179,11 @@ public sealed class UserManager : IUserManager
             ArgumentNullException.ThrowIfNull(modifiedBy);
 
             var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
-            UserValidation.ValidatePassword(newPassword);
 
-            user.Password = PasswordHasher.HashPassword(newPassword);;
+            var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
+            if (!passValid) throw new ArgumentException(passError);
+
+            user.HashPassword = PasswordHasher.HashPassword(newPassword);;
             user.ModifiedOn = DateTime.UtcNow;
             user.ModifiedBy = modifiedBy;
             InvalidateCaches(login);
@@ -206,7 +201,8 @@ public sealed class UserManager : IUserManager
             ArgumentNullException.ThrowIfNull(modifiedBy);
 
             var user = _users.TryGetValue(oldLogin, out var u) ? u : throw new KeyNotFoundException("User not found");
-            UserValidation.ValidateLogin(newLogin);
+            var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);
+            if (!loginValid) throw new ArgumentException(loginError);
 
             if (_users.ContainsKey(newLogin))
                 throw new ArgumentException("New login already exists");

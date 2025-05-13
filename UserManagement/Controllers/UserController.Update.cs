@@ -23,6 +23,10 @@ public partial class UserController
             var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser.Login);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(UpdateUser));
@@ -48,6 +52,10 @@ public partial class UserController
             await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser.Login);
             return Ok(new { Message = "Password updated successfully" });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(UpdatePassword));
@@ -72,6 +80,10 @@ public partial class UserController
 
             var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser.Login);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {

@@ -12,7 +12,6 @@ public interface IUserManager
     Task<User?> GetByLoginAsync(string login);
     Task<User?> GetByLoginCachedAsync(string login);
     Task<User?> GetByCredentialsAsync(string login, string password);
-    Task<bool> LoginExistsAsync(string login);
     Task<User> CreateUserAsync(UserCreateDto dto, string createdBy);
     Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy);
     Task<User> UpdatePasswordAsync(string login, string newPassword, string modifiedBy);
