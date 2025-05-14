@@ -44,9 +44,28 @@ public sealed class UserManager : IUserManager
         var user = await GetByLoginAsync(login);
         return user != null && user.Admin;
     }
-
-    public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10)
+    public async Task<bool> IsFoundUserAsync(string login)
     {
+        var user = await GetByLoginAsync(login);
+        return user != null;
+    }
+    public async Task<bool> IsYourAccountAsync(string currentlogin, string login)
+    {
+        var currentUser = await GetByLoginAsync(currentlogin);
+        var userToUpdate = await GetByLoginAsync(login);
+        
+        if (currentUser == null || userToUpdate == null)
+            return false;
+        
+        return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
+    }
+    
+
+    public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
+    {
+        if (!await IsAdminUserAsync(currentUser))
+            throw new UnauthorizedAccessException("Only admin can get all users");
+
         var allUsers = await GetAllActiveUsersAsync();
         var totalCount = allUsers.Count;
         
@@ -83,8 +102,10 @@ public sealed class UserManager : IUserManager
         }) ?? [];
     }
 
-    public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age)
+    public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser)
     {
+        if (!await IsAdminUserAsync(currentUser))
+            throw new UnauthorizedAccessException("Only admin can get users older than specified age");
         var cutoffDate = DateTime.Today.AddYears(-age);
         return await Task.FromResult(
             _users.Values
@@ -97,11 +118,14 @@ public sealed class UserManager : IUserManager
         return await Task.FromResult(_users.TryGetValue(login, out var user) ? user : null);
     }
 
-    public async Task<User?> GetByLoginCachedAsync(string login)
+    public async Task<User?> GetByLoginCachedAsync(string login, string currentUser)
     {
         var cacheKey = $"user_{login}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
+            if (!await IsAdminUserAsync(currentUser))
+                throw new UnauthorizedAccessException("Only admin can get user by login");
+            
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
             return await GetByLoginAsync(login);
         });
@@ -123,7 +147,7 @@ public sealed class UserManager : IUserManager
             ArgumentNullException.ThrowIfNull(createdBy);
 
             if (!await IsAdminUserAsync(createdBy))
-            throw new UnauthorizedAccessException("Only admin can create users");
+                throw new UnauthorizedAccessException("Only admin can create users");
 
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ArgumentException(loginError);
@@ -156,134 +180,155 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy)
     {
-        return await Task.Run(() =>
+        ArgumentNullException.ThrowIfNull(dto);
+        ArgumentNullException.ThrowIfNull(modifiedBy);
+
+        if (!await IsFoundUserAsync(modifiedBy))
+            throw new UnauthorizedAccessException("Authentication required");
+
+        if (!await IsFoundUserAsync(login))
+            throw new KeyNotFoundException("User Not Found");
+
+        if (!await IsYourAccountAsync(modifiedBy, login))
+            throw new UnauthorizedAccessException("You can only update your own active account");
+
+        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+
+        var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
+        if (!nameValid) throw new ArgumentException(nameError);
+        user.Name = dto.Name;
+
+        if (dto.Gender.HasValue)
+            user.Gender = dto.Gender.Value;
+
+        if (dto.Birthday.HasValue)
         {
-            ArgumentNullException.ThrowIfNull(dto);
-            ArgumentNullException.ThrowIfNull(modifiedBy);
+            var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
+            if (!birthdayValid) throw new ArgumentException(birthdayError);
+            user.Birthday = dto.Birthday;
+        }
 
-            var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        user.ModifiedOn = DateTime.UtcNow;
+        user.ModifiedBy = modifiedBy;
+        InvalidateCaches(login);
 
-            var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
-            if (!nameValid) throw new ArgumentException(nameError);
-            user.Name = dto.Name;
+        _logger.LogInformation("User {Login} updated by {ModifiedBy}", user.Login, modifiedBy);
 
-            if (dto.Gender.HasValue)
-                user.Gender = dto.Gender.Value;
-
-            if (dto.Birthday.HasValue)
-            {
-                var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
-                if (!birthdayValid) throw new ArgumentException(birthdayError);
-                user.Birthday = dto.Birthday;
-            }
-
-            user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = modifiedBy;
-            InvalidateCaches(login);
-
-            _logger.LogInformation("User {Login} updated by {ModifiedBy}", user.Login, modifiedBy);
-            return user;
-        });
+        return await Task.FromResult(user);
     }
 
     public async Task<User> UpdatePasswordAsync(string login, string newPassword, string modifiedBy)
     {
-        return await Task.Run(() =>
-        {
-            ArgumentNullException.ThrowIfNull(newPassword);
-            ArgumentNullException.ThrowIfNull(modifiedBy);
+        ArgumentNullException.ThrowIfNull(newPassword);
+        ArgumentNullException.ThrowIfNull(modifiedBy);
 
-            var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        if (!await IsFoundUserAsync(modifiedBy))
+            throw new UnauthorizedAccessException("Authentication required");
 
-            var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
-            if (!passValid) throw new ArgumentException(passError);
+        if (!await IsFoundUserAsync(login))
+            throw new KeyNotFoundException("User Not Found");
 
-            user.HashPassword = PasswordHasher.HashPassword(newPassword);;
-            user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = modifiedBy;
-            InvalidateCaches(login);
+        if (!await IsYourAccountAsync(modifiedBy, login))
 
-            _logger.LogInformation("Password for user {Login} updated by {ModifiedBy}", user.Login, modifiedBy);
-            return user;
-        });
+            throw new UnauthorizedAccessException("You can only update your own active account");
+        
+        var user = await GetByLoginAsync(login);
+
+        var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
+        if (!passValid) throw new ArgumentException(passError);
+
+        user.HashPassword = PasswordHasher.HashPassword(newPassword);;
+        user.ModifiedOn = DateTime.UtcNow;
+        user.ModifiedBy = modifiedBy;
+        InvalidateCaches(login);
+
+        _logger.LogInformation("Password for user {Login} updated by {ModifiedBy}", user.Login, modifiedBy);
+
+        return await Task.FromResult(user);
     }
 
     public async Task<User> UpdateLoginAsync(string oldLogin, string newLogin, string modifiedBy)
     {
-        return await Task.Run(() =>
-        {
-            ArgumentNullException.ThrowIfNull(newLogin);
-            ArgumentNullException.ThrowIfNull(modifiedBy);
+        ArgumentNullException.ThrowIfNull(newLogin);
+        ArgumentNullException.ThrowIfNull(modifiedBy);
 
-            var user = _users.TryGetValue(oldLogin, out var u) ? u : throw new KeyNotFoundException("User not found");
-            var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);
-            if (!loginValid) throw new ArgumentException(loginError);
+        if (!await IsFoundUserAsync(modifiedBy))
+            throw new UnauthorizedAccessException("Authentication required");
 
-            if (_users.ContainsKey(newLogin))
-                throw new ArgumentException("New login already exists");
+        if (!await IsFoundUserAsync(oldLogin))
+            throw new KeyNotFoundException("User Not Found");
 
-            _users.Remove(oldLogin);
-            user.Login = newLogin;
-            user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = modifiedBy;
-            _users.Add(newLogin, user);
-            InvalidateCaches(newLogin, oldLogin);
+        if (!await IsYourAccountAsync(modifiedBy, oldLogin))
+            throw new UnauthorizedAccessException("You can only update your own active account");
+        
+        var user = await GetByLoginAsync(oldLogin);
 
-            _logger.LogInformation("Login for user {OldLogin} changed to {NewLogin} by {ModifiedBy}", 
-                oldLogin, newLogin, modifiedBy);
-            return user;
-        });
+        var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);
+        if (!loginValid) throw new ArgumentException(loginError);
+
+        if (_users.ContainsKey(newLogin))
+            throw new ArgumentException("New login already exists");
+
+        _users.Remove(oldLogin);
+        user.Login = newLogin;
+        user.ModifiedOn = DateTime.UtcNow;
+        user.ModifiedBy = modifiedBy;
+        _users.Add(newLogin, user);
+        InvalidateCaches(newLogin, oldLogin);
+
+        _logger.LogInformation("Login for user {OldLogin} changed to {NewLogin} by {ModifiedBy}", 
+            oldLogin, newLogin, modifiedBy);
+
+        return await Task.FromResult(user);
     }
 
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
+        ArgumentNullException.ThrowIfNull(revokedBy);
+
         if (!await IsAdminUserAsync(revokedBy))
             throw new UnauthorizedAccessException("Only admin can delete users");
 
-        await Task.Run(() =>
+        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+
+        if (softDelete)
         {
-            ArgumentNullException.ThrowIfNull(revokedBy);
+            user.RevokedOn = DateTime.UtcNow;
+            user.RevokedBy = revokedBy;
+            user.ModifiedOn = DateTime.UtcNow;
+            user.ModifiedBy = revokedBy;
+            _logger.LogInformation("User {Login} soft deleted by {RevokedBy}", user.Login, revokedBy);
+        }
+        else
+        {
+            _users.Remove(login);
+            _logger.LogInformation("User {Login} permanently deleted by {RevokedBy}", login, revokedBy);
+        }
 
-            var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        InvalidateCaches(login);
 
-            if (softDelete)
-            {
-                user.RevokedOn = DateTime.UtcNow;
-                user.RevokedBy = revokedBy;
-                user.ModifiedOn = DateTime.UtcNow;
-                user.ModifiedBy = revokedBy;
-                _logger.LogInformation("User {Login} soft deleted by {RevokedBy}", user.Login, revokedBy);
-            }
-            else
-            {
-                _users.Remove(login);
-                _logger.LogInformation("User {Login} permanently deleted by {RevokedBy}", login, revokedBy);
-            }
 
-            InvalidateCaches(login);
-        });
     }
 
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
+        ArgumentNullException.ThrowIfNull(modifiedBy);
+
         if (!await IsAdminUserAsync(modifiedBy))
             throw new UnauthorizedAccessException("Only admin can restore users");
-        
-        return await Task.Run(() =>
-        {
-            ArgumentNullException.ThrowIfNull(modifiedBy);
 
-            var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
 
-            user.RevokedOn = null;
-            user.RevokedBy = null;
-            user.ModifiedOn = DateTime.UtcNow;
-            user.ModifiedBy = modifiedBy;
-            InvalidateCaches(login);
+        user.RevokedOn = null;
+        user.RevokedBy = null;
+        user.ModifiedOn = DateTime.UtcNow;
+        user.ModifiedBy = modifiedBy;
+        InvalidateCaches(login);
 
-            _logger.LogInformation("User {Login} restored by {ModifiedBy}", user.Login, modifiedBy);
-            return user;
-        });
+        _logger.LogInformation("User {Login} restored by {ModifiedBy}", user.Login, modifiedBy);
+
+        return await Task.FromResult(user);
+
     }
 
     private void InvalidateCaches(params string[] logins)
