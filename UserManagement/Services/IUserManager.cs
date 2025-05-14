@@ -5,6 +5,7 @@ namespace UserManagement.Services;
 
 public interface IUserManager
 {
+    Task<bool> IsAdminUserAsync(string login);
     Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10);
     Task<List<User>> GetAllActiveUsersAsync();
     Task<List<User>> GetAllUsersAsync();

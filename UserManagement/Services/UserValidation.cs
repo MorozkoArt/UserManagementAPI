@@ -62,4 +62,11 @@ public static partial class UserValidation
     }
     private const string SpecialChars = "!@#$%^&*()_+-=[]{};':\",./<>?\\|`~";
 
+    public static (bool IsValid, string? ErrorMessage) ValidateBirthday(DateTime? birthday)
+    {
+        if (birthday > DateTime.Now)
+            return (false, "Birthday cannot be in the future");
+        return (true, null);
+    }
+
 }

@@ -7,6 +7,9 @@ public partial class UserController
     [HttpPut("{login}")]
     public async Task<IActionResult> UpdateUser(string login, UserUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();
@@ -36,6 +39,9 @@ public partial class UserController
     [HttpPut("{login}/password")]
     public async Task<IActionResult> UpdatePassword(string login, UserPasswordUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();
@@ -65,6 +71,9 @@ public partial class UserController
     [HttpPut("{login}/login")]
     public async Task<IActionResult> UpdateLogin(string login, UserLoginUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();

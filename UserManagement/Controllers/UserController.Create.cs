@@ -14,11 +14,12 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can create users");
-
-            var user = await _userManager.CreateUserAsync(dto, currentUser.Login);
+            var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? string.Empty);
             return Ok(new { user.Id, user.Login });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (ArgumentException ex)
         {

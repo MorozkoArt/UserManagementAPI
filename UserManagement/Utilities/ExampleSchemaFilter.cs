@@ -15,7 +15,7 @@ public class ExampleSchemaFilter : ISchemaFilter
                 ["login"] = new OpenApiString("user123"),
                 ["password"] = new OpenApiString("SecurePass123!"),
                 ["name"] = new OpenApiString("Ivan Ivanov"),
-                ["gender"] = new OpenApiInteger(0),
+                ["gender"] = new OpenApiInteger(2),
                 ["birthday"] = new OpenApiString("1990-01-01"),
                 ["admin"] = new OpenApiBoolean(false)
             };
@@ -26,7 +26,7 @@ public class ExampleSchemaFilter : ISchemaFilter
             schema.Example = new OpenApiObject
             {
                 ["name"] = new OpenApiString("Ivan Ivanov"),
-                ["gender"] = new OpenApiInteger(0),
+                ["gender"] = new OpenApiInteger(2),
                 ["birthday"] = new OpenApiString("1990-01-01"),
             };
         }

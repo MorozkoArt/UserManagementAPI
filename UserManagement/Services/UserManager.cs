@@ -39,6 +39,12 @@ public sealed class UserManager : IUserManager
         _logger.LogInformation("Admin user initialized");
     }
 
+    public async Task<bool> IsAdminUserAsync(string login)
+    {
+        var user = await GetByLoginAsync(login);
+        return user != null && user.Admin;
+    }
+
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10)
     {
         var allUsers = await GetAllActiveUsersAsync();
@@ -111,10 +117,13 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
-        return await Task.Run(() =>
+        return await Task.Run(async () =>
         {
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(createdBy);
+
+            if (!await IsAdminUserAsync(createdBy))
+            throw new UnauthorizedAccessException("Only admin can create users");
 
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ArgumentException(loginError);
@@ -122,6 +131,8 @@ public sealed class UserManager : IUserManager
             if (!passValid) throw new ArgumentException(passError);
             var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
             if (!nameValid) throw new ArgumentException(nameError);
+            var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
+            if (!birthdayValid) throw new ArgumentException(birthdayError);
 
             var user = new User
             {
@@ -154,13 +165,17 @@ public sealed class UserManager : IUserManager
 
             var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
             if (!nameValid) throw new ArgumentException(nameError);
-            else user.Name = dto.Name;
+            user.Name = dto.Name;
 
             if (dto.Gender.HasValue)
                 user.Gender = dto.Gender.Value;
 
             if (dto.Birthday.HasValue)
+            {
+                var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
+                if (!birthdayValid) throw new ArgumentException(birthdayError);
                 user.Birthday = dto.Birthday;
+            }
 
             user.ModifiedOn = DateTime.UtcNow;
             user.ModifiedBy = modifiedBy;
@@ -222,6 +237,9 @@ public sealed class UserManager : IUserManager
 
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
+        if (!await IsAdminUserAsync(revokedBy))
+            throw new UnauthorizedAccessException("Only admin can delete users");
+
         await Task.Run(() =>
         {
             ArgumentNullException.ThrowIfNull(revokedBy);
@@ -248,6 +266,9 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
+        if (!await IsAdminUserAsync(modifiedBy))
+            throw new UnauthorizedAccessException("Only admin can restore users");
+        
         return await Task.Run(() =>
         {
             ArgumentNullException.ThrowIfNull(modifiedBy);

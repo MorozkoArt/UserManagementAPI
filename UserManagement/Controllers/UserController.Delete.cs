@@ -9,11 +9,12 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can delete users");
-
-            await _userManager.DeleteUserAsync(login, currentUser.Login, softDelete);
+            await _userManager.DeleteUserAsync(login, currentUser?.Login ?? string.Empty, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (ArgumentException ex)
         {
