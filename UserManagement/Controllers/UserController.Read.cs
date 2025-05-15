@@ -11,10 +11,7 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can get all active users");
-
-            var result = await _userManager.GetAllActiveUsersPaginatedAsync(page, pageSize);
+            var result = await _userManager.GetAllActiveUsersPaginatedAsync(currentUser?.Login ?? string.Empty, page, pageSize);
             var users = result.Items.Select(MapToAdminDto);
 
             return Ok(new 
@@ -25,6 +22,10 @@ public partial class UserController
                 TotalCount = result.TotalCount,
                 TotalPages = result.TotalPages
             });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {
@@ -38,13 +39,14 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can get user by login");
-
-            var user = await _userManager.GetByLoginCachedAsync(login);
+            var user = await _userManager.GetByLoginCachedAsync(login, currentUser?.Login ?? string.Empty);
             return user == null 
                 ? NotFound("User not found") 
                 : Ok(MapToAdminDto(user));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {
@@ -58,19 +60,21 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null)
-                return Unauthorized("Authentication required");
-            if (!currentUser.IsActive)
-                return Unauthorized("Your account is inactive");
+            var user = await _userManager.GetCurrentUserAsync(currentUser?.Login ?? string.Empty);
 
             return Ok(new UserResponseDto
             {
-                Name = currentUser.Name,
-                Gender = currentUser.Gender,
-                Birthday = currentUser.Birthday,
-                IsActive = currentUser.IsActive
+                Name = user.Name,
+                Gender = user.Gender,
+                Birthday = user.Birthday,
+                IsActive = user.IsActive
             });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetCurrentUserInfo));
@@ -83,10 +87,7 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can get users older than specified age");
-
-            var users = await _userManager.GetUsersOlderThanAsync(age);
+            var users = await _userManager.GetUsersOlderThanAsync(age, currentUser?.Login ?? string.Empty);
             var paginatedUsers = users
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -100,6 +101,10 @@ public partial class UserController
                 TotalCount = users.Count(),
                 TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
             });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {

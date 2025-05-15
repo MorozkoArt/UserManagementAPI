@@ -7,21 +7,26 @@ public partial class UserController
     [HttpPut("{login}")]
     public async Task<IActionResult> UpdateUser(string login, UserUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null)
-                return Unauthorized("Authentication required");
-
-            var userToUpdate = await _userManager.GetByLoginAsync(login);
-            if (userToUpdate == null)
-                return NotFound("User not found");
-
-            if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
-                return Unauthorized("You can only update your own active account");
-
-            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser.Login);
+            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser?.Login ?? string.Empty);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -32,21 +37,26 @@ public partial class UserController
     [HttpPut("{login}/password")]
     public async Task<IActionResult> UpdatePassword(string login, UserPasswordUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null)
-                return Unauthorized("Authentication required");
-
-            var userToUpdate = await _userManager.GetByLoginAsync(login);
-            if (userToUpdate == null)
-                return NotFound("User not found");
-
-            if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
-                return Unauthorized("You can only update your own active account");
-
-            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser.Login);
+            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser?.Login ?? string.Empty);
             return Ok(new { Message = "Password updated successfully" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -57,21 +67,26 @@ public partial class UserController
     [HttpPut("{login}/login")]
     public async Task<IActionResult> UpdateLogin(string login, UserLoginUpdateDto dto)
     {
+        if (!ModelState.IsValid) {
+            return BadRequest(ModelState);
+        }
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null)
-                return Unauthorized("Authentication required");
-
-            var userToUpdate = await _userManager.GetByLoginAsync(login);
-            if (userToUpdate == null)
-                return NotFound("User not found");
-
-            if (!currentUser.Admin && (currentUser.Login != login || !userToUpdate.IsActive))
-                return Unauthorized("You can only update your own active account");
-
-            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser.Login);
+            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser?.Login ?? string.Empty);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {

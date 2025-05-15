@@ -9,11 +9,16 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null || !currentUser.Admin)
-                return Unauthorized("Only admin can restore users");
-
-            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser.Login);
+            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser?.Login ?? string.Empty);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
         catch (Exception ex)
         {
