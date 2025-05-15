@@ -1,6 +1,7 @@
 namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
+using UserManagement.Exceptions;
 
 
 public partial class UserController
@@ -23,7 +24,7 @@ public partial class UserController
                 TotalPages = result.TotalPages
             });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AdminAccessException ex)
         {
             return Unauthorized(ex.Message);
         }
@@ -44,7 +45,7 @@ public partial class UserController
                 ? NotFound("User not found") 
                 : Ok(MapToAdminDto(user));
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AdminAccessException ex)
         {
             return Unauthorized(ex.Message);
         }
@@ -70,11 +71,14 @@ public partial class UserController
                 IsActive = user.IsActive
             });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AuthenticationRequiredException ex)
         {
             return Unauthorized(ex.Message);
         }
-
+        catch (AccountInactiveException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetCurrentUserInfo));
@@ -102,7 +106,7 @@ public partial class UserController
                 TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
             });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AdminAccessException ex)
         {
             return Unauthorized(ex.Message);
         }
