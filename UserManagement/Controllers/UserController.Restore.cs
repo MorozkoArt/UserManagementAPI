@@ -20,10 +20,6 @@ public partial class UserController
         {
             return NotFound(ex.Message);
         }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(RestoreUser));

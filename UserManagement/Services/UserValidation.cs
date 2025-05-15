@@ -13,10 +13,7 @@ public static partial class UserValidation
 
         if (login.EndsWith("_") || login.EndsWith("-") || login.EndsWith("."))
             return (false, "Login cannot end with characters _-.");
-
-        if (_users.ContainsKey(login))
-            return (false, "Login already exists");
-
+            
         return (true, null);
     }
 

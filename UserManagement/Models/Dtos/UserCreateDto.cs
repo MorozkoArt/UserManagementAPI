@@ -21,7 +21,7 @@ public class UserCreateDto
     public required string Name { get; set; }
 
     [RegularExpression(@"^[0-2]+$", ErrorMessage = "The gender value can contain only 3 values (0 - women, 1 - man, 2 - unknown)")]
-    public int Gender { get; set; }
+    public int Gender { get; set; } = 2;
 
     [DataType(DataType.Date, ErrorMessage = "Invalid date format")]
     [SwaggerSchema(Description = "Date in format YYYY-MM-DD")]

@@ -160,6 +160,10 @@ public sealed class UserManager : IUserManager
 
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ArgumentException(loginError);
+
+            if (_users.ContainsKey(dto.Login))
+                throw new ArgumentException("Login already exists");
+
             var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
             if (!passValid) throw new ArgumentException(passError);
             var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
@@ -199,7 +203,6 @@ public sealed class UserManager : IUserManager
 
         if (!await IsYourAccountAsync(modifiedBy, login))
             throw new UnauthorizedAccessException("You can only update your own active account");
-
 
         var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
         if (!nameValid) throw new ArgumentException(nameError);
