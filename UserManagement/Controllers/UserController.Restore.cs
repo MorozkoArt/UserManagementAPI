@@ -16,6 +16,10 @@ public partial class UserController
         {
             return Unauthorized(ex.Message);
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);

@@ -6,7 +6,7 @@ public class User
     public required string Login { get; set; }
     public required string HashPassword { get; set; }
     public required string Name { get; set; }
-    public int Gender { get; set; } 
+    public int Gender { get; set; } = 2;
     public DateTime? Birthday { get; set; }
     public bool Admin { get; set; }
     public DateTime CreatedOn { get; set; } = DateTime.UtcNow;

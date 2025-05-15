@@ -60,20 +60,21 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            if (currentUser == null)
-                return Unauthorized("Authentication required");
-            if (!currentUser.IsActive)
-                return Unauthorized("Your account is inactive");
+            var user = await _userManager.GetCurrentUserAsync(currentUser?.Login ?? string.Empty);
 
             return Ok(new UserResponseDto
             {
-                Name = currentUser.Name,
-                Gender = currentUser.Gender,
-                Birthday = currentUser.Birthday,
-                IsActive = currentUser.IsActive
+                Name = user.Name,
+                Gender = user.Gender,
+                Birthday = user.Birthday,
+                IsActive = user.IsActive
             });
         }
-        
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetCurrentUserInfo));

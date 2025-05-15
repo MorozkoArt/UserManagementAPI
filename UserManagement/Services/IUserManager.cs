@@ -12,6 +12,7 @@ public interface IUserManager
     Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser);
     Task<User?> GetByLoginAsync(string login);
     Task<User?> GetByLoginCachedAsync(string login, string currentUser);
+    Task<User> GetCurrentUserAsync(string login);
     Task<User?> GetByCredentialsAsync(string login, string password);
     Task<User> CreateUserAsync(UserCreateDto dto, string createdBy);
     Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy);

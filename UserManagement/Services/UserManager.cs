@@ -34,7 +34,7 @@ public sealed class UserManager : IUserManager
             CreatedBy = "System",
             ModifiedBy = "System"
         };
-        
+
         _users.Add(admin.Login, admin);
         _logger.LogInformation("Admin user initialized");
     }
@@ -56,10 +56,9 @@ public sealed class UserManager : IUserManager
         
         if (currentUser == null || userToUpdate == null)
             return false;
-        
+
         return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
     }
-    
 
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
     {
@@ -117,6 +116,16 @@ public sealed class UserManager : IUserManager
     {
         return await Task.FromResult(_users.TryGetValue(login, out var user) ? user : null);
     }
+
+    public async Task<User> GetCurrentUserAsync(string login)
+    {
+        var  user = await GetByLoginAsync(login) ?? throw new UnauthorizedAccessException("Authentication required");
+        if (!user.IsActive)
+            throw new UnauthorizedAccessException("Your account is inactive");
+        return user;
+    }
+
+
 
     public async Task<User?> GetByLoginCachedAsync(string login, string currentUser)
     {
@@ -186,13 +195,11 @@ public sealed class UserManager : IUserManager
         if (!await IsFoundUserAsync(modifiedBy))
             throw new UnauthorizedAccessException("Authentication required");
 
-        if (!await IsFoundUserAsync(login))
-            throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
 
         if (!await IsYourAccountAsync(modifiedBy, login))
             throw new UnauthorizedAccessException("You can only update your own active account");
 
-        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
 
         var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
         if (!nameValid) throw new ArgumentException(nameError);
@@ -225,14 +232,10 @@ public sealed class UserManager : IUserManager
         if (!await IsFoundUserAsync(modifiedBy))
             throw new UnauthorizedAccessException("Authentication required");
 
-        if (!await IsFoundUserAsync(login))
-            throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
 
         if (!await IsYourAccountAsync(modifiedBy, login))
-
             throw new UnauthorizedAccessException("You can only update your own active account");
-        
-        var user = await GetByLoginAsync(login);
 
         var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
         if (!passValid) throw new ArgumentException(passError);
@@ -255,14 +258,11 @@ public sealed class UserManager : IUserManager
         if (!await IsFoundUserAsync(modifiedBy))
             throw new UnauthorizedAccessException("Authentication required");
 
-        if (!await IsFoundUserAsync(oldLogin))
-            throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(oldLogin) ?? throw new KeyNotFoundException("User Not Found");
 
         if (!await IsYourAccountAsync(modifiedBy, oldLogin))
             throw new UnauthorizedAccessException("You can only update your own active account");
         
-        var user = await GetByLoginAsync(oldLogin);
-
         var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);
         if (!loginValid) throw new ArgumentException(loginError);
 
@@ -289,7 +289,7 @@ public sealed class UserManager : IUserManager
         if (!await IsAdminUserAsync(revokedBy))
             throw new UnauthorizedAccessException("Only admin can delete users");
 
-        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
 
         if (softDelete)
         {
@@ -317,7 +317,7 @@ public sealed class UserManager : IUserManager
         if (!await IsAdminUserAsync(modifiedBy))
             throw new UnauthorizedAccessException("Only admin can restore users");
 
-        var user = _users.TryGetValue(login, out var u) ? u : throw new KeyNotFoundException("User not found");
+        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
 
         user.RevokedOn = null;
         user.RevokedBy = null;
