@@ -6,7 +6,7 @@ namespace UserManagement.Services;
 
 public static partial class UserValidation
 {
-    public static (bool IsValid, string? ErrorMessage) ValidateLogin(string login, Dictionary<string, User> _users)
+    public static (bool IsValid, string ErrorMessage) ValidateLogin(string login, Dictionary<string, User> _users)
     {
         if (login.StartsWith("_") || login.StartsWith("-") || login.StartsWith("."))
             return (false, "Login cannot start with characters _-.");
@@ -14,10 +14,10 @@ public static partial class UserValidation
         if (login.EndsWith("_") || login.EndsWith("-") || login.EndsWith("."))
             return (false, "Login cannot end with characters _-.");
             
-        return (true, null);
+        return (true, string.Empty);
     }
 
-    public static (bool IsValid, string? ErrorMessage) ValidatePassword(string password)
+    public static (bool IsValid, string ErrorMessage) ValidatePassword(string password)
     {
         var hasUpper = false;
         var hasLower = false;
@@ -41,10 +41,10 @@ public static partial class UserValidation
         if (errors.Length > 0)
             return (false, $"Password does not meet the requirements:\n{errors}");
 
-        return (true, null);
+        return (true, string.Empty);
     }
 
-    public static (bool IsValid, string? ErrorMessage) ValidateName(string name)
+    public static (bool IsValid, string ErrorMessage) ValidateName(string name)
     {
         if (name.StartsWith(" ") || name.StartsWith("-"))
             return (false, "A name cannot begin with a space or hyphen");
@@ -55,15 +55,15 @@ public static partial class UserValidation
         if (name.Contains("  "))
             return (false, "The name cannot contain double spaces");
 
-        return (true, null);
+        return (true, string.Empty);
     }
     private const string SpecialChars = "!@#$%^&*()_+-=[]{};':\",./<>?\\|`~";
 
-    public static (bool IsValid, string? ErrorMessage) ValidateBirthday(DateTime? birthday)
+    public static (bool IsValid, string ErrorMessage) ValidateBirthday(DateTime? birthday)
     {
         if (birthday > DateTime.Now)
             return (false, "Birthday cannot be in the future");
-        return (true, null);
+        return (true, string.Empty);
     }
 
 }

@@ -1,5 +1,7 @@
 namespace UserManagement.Controllers;
+
 using Microsoft.AspNetCore.Mvc;
+using UserManagement.Exceptions;
 
 public partial class UserController
 {
@@ -12,11 +14,11 @@ public partial class UserController
             var restoredUser = await _userManager.RestoreUserAsync(login, currentUser?.Login ?? string.Empty);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AdminAccessException ex)
         {
             return Unauthorized(ex.Message);
         }
-        catch (KeyNotFoundException ex)
+        catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
         }

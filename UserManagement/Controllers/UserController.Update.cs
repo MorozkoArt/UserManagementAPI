@@ -1,6 +1,7 @@
 namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
+using UserManagement.Exceptions;
 
 public partial class UserController
 {
@@ -16,15 +17,19 @@ public partial class UserController
             var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser?.Login ?? string.Empty);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AuthenticationRequiredException ex)
         {
             return Unauthorized(ex.Message);
         }
-        catch (KeyNotFoundException ex)
+        catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
         }
-        catch (ArgumentException ex)
+        catch (AccountUpdateForbiddenException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (ValidationException ex)
         {
             return BadRequest(ex.Message);
         }
@@ -46,15 +51,19 @@ public partial class UserController
             await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser?.Login ?? string.Empty);
             return Ok(new { Message = "Password updated successfully" });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AuthenticationRequiredException ex)
         {
             return Unauthorized(ex.Message);
         }
-        catch (KeyNotFoundException ex)
+        catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
         }
-        catch (ArgumentException ex)
+        catch (AccountUpdateForbiddenException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (ValidationException ex)
         {
             return BadRequest(ex.Message);
         }
@@ -76,15 +85,23 @@ public partial class UserController
             var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser?.Login ?? string.Empty);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AuthenticationRequiredException ex)
         {
             return Unauthorized(ex.Message);
         }
-        catch (KeyNotFoundException ex)
+        catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
         }
-        catch (ArgumentException ex)
+        catch (AccountUpdateForbiddenException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (LoginAlreadyExistsException ex)
         {
             return BadRequest(ex.Message);
         }

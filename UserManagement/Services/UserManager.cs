@@ -2,6 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using UserManagement.Models;
 using UserManagement.Models.Dtos;
 using UserManagement.Utilities;
+using UserManagement.Exceptions;
 
 namespace UserManagement.Services;
 
@@ -59,17 +60,63 @@ public sealed class UserManager : IUserManager
 
         return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
     }
+    
+    #region Create
+    public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
+    {
+        return await Task.Run(async () =>
+        {
+            ArgumentNullException.ThrowIfNull(dto);
+            ArgumentNullException.ThrowIfNull(createdBy);
 
+            if (!await IsAdminUserAsync(createdBy))
+                throw new AdminAccessException("Only admin can create users");
+
+            var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
+            if (!loginValid) throw new ValidationException(loginError);
+
+            var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
+            if (!passValid) throw new ValidationException(passError);
+            var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
+            if (!nameValid) throw new ValidationException(nameError);
+            var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
+            if (!birthdayValid) throw new ValidationException(birthdayError);
+
+            if (_users.ContainsKey(dto.Login))
+                throw new LoginAlreadyExistsException(dto.Login);
+
+            var user = new User
+            {
+                Login = dto.Login,
+                HashPassword = PasswordHasher.HashPassword(dto.Password),
+                Name = dto.Name,
+                Gender = dto.Gender,
+                Birthday = dto.Birthday,
+                Admin = dto.Admin,
+                CreatedBy = createdBy,
+                ModifiedBy = createdBy
+            };
+
+            _users.Add(user.Login, user);
+            InvalidateCaches(user.Login);
+            
+            _logger.LogInformation("User {Login} created by {CreatedBy}", user.Login, createdBy);
+            return user;
+        });
+    }
+    #endregion
+
+    #region Read
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
     {
         if (!await IsAdminUserAsync(currentUser))
-            throw new UnauthorizedAccessException("Only admin can get all users");
+            throw new AdminAccessException("Only admin can get all users");
 
         var allUsers = await GetAllActiveUsersAsync();
         var totalCount = allUsers.Count;
-        
+
         pageSize = Math.Min(pageSize, 100);
-        
+
         var items = allUsers
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -104,7 +151,7 @@ public sealed class UserManager : IUserManager
     public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser)
     {
         if (!await IsAdminUserAsync(currentUser))
-            throw new UnauthorizedAccessException("Only admin can get users older than specified age");
+            throw new AdminAccessException("Only admin can get users older than specified age");
         var cutoffDate = DateTime.Today.AddYears(-age);
         return await Task.FromResult(
             _users.Values
@@ -119,9 +166,9 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> GetCurrentUserAsync(string login)
     {
-        var  user = await GetByLoginAsync(login) ?? throw new UnauthorizedAccessException("Authentication required");
+        var user = await GetByLoginAsync(login) ?? throw new AuthenticationRequiredException();
         if (!user.IsActive)
-            throw new UnauthorizedAccessException("Your account is inactive");
+            throw new AccountInactiveException();
         return user;
     }
 
@@ -133,7 +180,7 @@ public sealed class UserManager : IUserManager
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             if (!await IsAdminUserAsync(currentUser))
-                throw new UnauthorizedAccessException("Only admin can get user by login");
+                throw new AdminAccessException("Only admin can get user by login");
             
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
             return await GetByLoginAsync(login);
@@ -147,65 +194,25 @@ public sealed class UserManager : IUserManager
             PasswordHasher.VerifyPassword(password, user.HashPassword) && 
             user.IsActive ? user : null);
     }
+    #endregion
 
-    public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
-    {
-        return await Task.Run(async () =>
-        {
-            ArgumentNullException.ThrowIfNull(dto);
-            ArgumentNullException.ThrowIfNull(createdBy);
 
-            if (!await IsAdminUserAsync(createdBy))
-                throw new UnauthorizedAccessException("Only admin can create users");
-
-            var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
-            if (!loginValid) throw new ArgumentException(loginError);
-
-            if (_users.ContainsKey(dto.Login))
-                throw new ArgumentException("Login already exists");
-
-            var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
-            if (!passValid) throw new ArgumentException(passError);
-            var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
-            if (!nameValid) throw new ArgumentException(nameError);
-            var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
-            if (!birthdayValid) throw new ArgumentException(birthdayError);
-
-            var user = new User
-            {
-                Login = dto.Login,
-                HashPassword = PasswordHasher.HashPassword(dto.Password),
-                Name = dto.Name,
-                Gender = dto.Gender,
-                Birthday = dto.Birthday,
-                Admin = dto.Admin,
-                CreatedBy = createdBy,
-                ModifiedBy = createdBy
-            };
-
-            _users.Add(user.Login, user);
-            InvalidateCaches(user.Login);
-            
-            _logger.LogInformation("User {Login} created by {CreatedBy}", user.Login, createdBy);
-            return user;
-        });
-    }
-
+    #region Update-1
     public async Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy)
     {
         ArgumentNullException.ThrowIfNull(dto);
         ArgumentNullException.ThrowIfNull(modifiedBy);
 
         if (!await IsFoundUserAsync(modifiedBy))
-            throw new UnauthorizedAccessException("Authentication required");
+            throw new AuthenticationRequiredException();
 
-        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (!await IsYourAccountAsync(modifiedBy, login))
-            throw new UnauthorizedAccessException("You can only update your own active account");
+            throw new AccountUpdateForbiddenException();
 
         var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
-        if (!nameValid) throw new ArgumentException(nameError);
+        if (!nameValid) throw new ValidationException(nameError);
         user.Name = dto.Name;
 
         if (dto.Gender.HasValue)
@@ -214,7 +221,7 @@ public sealed class UserManager : IUserManager
         if (dto.Birthday.HasValue)
         {
             var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
-            if (!birthdayValid) throw new ArgumentException(birthdayError);
+            if (!birthdayValid) throw new ValidationException(birthdayError);
             user.Birthday = dto.Birthday;
         }
 
@@ -233,15 +240,15 @@ public sealed class UserManager : IUserManager
         ArgumentNullException.ThrowIfNull(modifiedBy);
 
         if (!await IsFoundUserAsync(modifiedBy))
-            throw new UnauthorizedAccessException("Authentication required");
+            throw new AuthenticationRequiredException();
 
-        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (!await IsYourAccountAsync(modifiedBy, login))
-            throw new UnauthorizedAccessException("You can only update your own active account");
+            throw new AccountUpdateForbiddenException();
 
         var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
-        if (!passValid) throw new ArgumentException(passError);
+        if (!passValid) throw new ValidationException(passError);
 
         user.HashPassword = PasswordHasher.HashPassword(newPassword);;
         user.ModifiedOn = DateTime.UtcNow;
@@ -259,18 +266,18 @@ public sealed class UserManager : IUserManager
         ArgumentNullException.ThrowIfNull(modifiedBy);
 
         if (!await IsFoundUserAsync(modifiedBy))
-            throw new UnauthorizedAccessException("Authentication required");
+            throw new AuthenticationRequiredException();
 
-        var user = await GetByLoginAsync(oldLogin) ?? throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(oldLogin) ?? throw new UserNotFoundException(oldLogin);
 
         if (!await IsYourAccountAsync(modifiedBy, oldLogin))
-            throw new UnauthorizedAccessException("You can only update your own active account");
+            throw new AccountUpdateForbiddenException();
         
         var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);
-        if (!loginValid) throw new ArgumentException(loginError);
+        if (!loginValid) throw new ValidationException(loginError);
 
         if (_users.ContainsKey(newLogin))
-            throw new ArgumentException("New login already exists");
+            throw new LoginAlreadyExistsException(newLogin);
 
         _users.Remove(oldLogin);
         user.Login = newLogin;
@@ -284,15 +291,17 @@ public sealed class UserManager : IUserManager
 
         return await Task.FromResult(user);
     }
+    #endregion
 
+    #region Delete
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
         ArgumentNullException.ThrowIfNull(revokedBy);
 
         if (!await IsAdminUserAsync(revokedBy))
-            throw new UnauthorizedAccessException("Only admin can delete users");
+            throw new AdminAccessException("Only admin can delete users");
 
-        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (softDelete)
         {
@@ -309,18 +318,18 @@ public sealed class UserManager : IUserManager
         }
 
         InvalidateCaches(login);
-
-
     }
+    #endregion
 
+    #region Update-2 (Restore)
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
         ArgumentNullException.ThrowIfNull(modifiedBy);
 
         if (!await IsAdminUserAsync(modifiedBy))
-            throw new UnauthorizedAccessException("Only admin can restore users");
+            throw new AdminAccessException("Only admin can restore users");
 
-        var user = await GetByLoginAsync(login) ?? throw new KeyNotFoundException("User Not Found");
+        var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         user.RevokedOn = null;
         user.RevokedBy = null;
@@ -331,14 +340,14 @@ public sealed class UserManager : IUserManager
         _logger.LogInformation("User {Login} restored by {ModifiedBy}", user.Login, modifiedBy);
 
         return await Task.FromResult(user);
-
     }
+    #endregion
 
     private void InvalidateCaches(params string[] logins)
     {
         _cache.Remove(AllActiveUsersCacheKey);
         _cache.Remove(AllUsersCacheKey);
-        
+
         foreach (var login in logins)
             _cache.Remove($"user_{login}");
     }

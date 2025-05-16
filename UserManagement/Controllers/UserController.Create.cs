@@ -1,6 +1,7 @@
 namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
+using UserManagement.Exceptions;
 
 
 public partial class UserController
@@ -17,11 +18,15 @@ public partial class UserController
             var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? string.Empty);
             return Ok(new { user.Id, user.Login });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AdminAccessException ex)
         {
             return Unauthorized(ex.Message);
         }
-        catch (ArgumentException ex)
+        catch (ValidationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (LoginAlreadyExistsException ex)
         {
             return BadRequest(ex.Message);
         }
