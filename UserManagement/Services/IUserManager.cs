@@ -8,6 +8,7 @@ public interface IUserManager
     Task<bool> IsAdminUserAsync(string login);
     Task<bool> IsFoundUserAsync(string login);
     Task<bool> IsYourAccountAsync(string currentlogin, string login);
+    Task<string> AuthenticateAsync(string login, string password);
     Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10);
     Task<List<User>> GetAllActiveUsersAsync();
     Task<List<User>> GetAllUsersAsync();

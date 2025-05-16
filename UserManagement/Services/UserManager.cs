@@ -11,14 +11,16 @@ public sealed class UserManager : IUserManager
     private readonly Dictionary<string, User> _users = [];
     private readonly ILogger<UserManager> _logger;
     private readonly IMemoryCache _cache;
+    private readonly JwtService _jwtService;
     private const string AllActiveUsersCacheKey = "all_active_users";
     private const string AllUsersCacheKey = "all_users";
     private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
 
-    public UserManager(ILogger<UserManager> logger, IMemoryCache cache)
+    public UserManager(ILogger<UserManager> logger, IMemoryCache cache, JwtService jwtService)
     {
         _logger = logger;
         _cache = cache;
+        _jwtService = jwtService;
         InitializeAdminUser();
     }
 
@@ -61,6 +63,15 @@ public sealed class UserManager : IUserManager
         return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
     }
     
+    public async Task<string> AuthenticateAsync(string login, string password)
+    {
+        var user = await GetByCredentialsAsync(login, password);
+        if (user == null)
+            throw new UnauthorizedAccessException("Invalid credentials");
+        
+        return _jwtService.GenerateToken(user);
+    }
+    
     #region Create
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
@@ -99,7 +110,7 @@ public sealed class UserManager : IUserManager
 
             _users.Add(user.Login, user);
             InvalidateCaches(user.Login);
-            
+
             _logger.LogInformation("User {Login} created by {CreatedBy}", user.Login, createdBy);
             return user;
         });
