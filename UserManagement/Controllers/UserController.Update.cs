@@ -1,14 +1,17 @@
-namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
 using UserManagement.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
+namespace UserManagement.Controllers;
 public partial class UserController
 {
+    [Authorize]
     [HttpPut("{login}")]
     public async Task<IActionResult> UpdateUser(string login, UserUpdateDto dto)
     {
-        if (!ModelState.IsValid) {
+        if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
         }
         try
@@ -39,10 +42,12 @@ public partial class UserController
         }
     }
 
+    [Authorize]
     [HttpPut("{login}/password")]
     public async Task<IActionResult> UpdatePassword(string login, UserPasswordUpdateDto dto)
     {
-        if (!ModelState.IsValid) {
+        if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
         }
         try
@@ -73,10 +78,12 @@ public partial class UserController
         }
     }
 
+    [Authorize]
     [HttpPut("{login}/login")]
     public async Task<IActionResult> UpdateLogin(string login, UserLoginUpdateDto dto)
     {
-        if (!ModelState.IsValid) {
+        if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
         }
         try

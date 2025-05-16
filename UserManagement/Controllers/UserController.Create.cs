@@ -1,15 +1,18 @@
-namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
 using UserManagement.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
+namespace UserManagement.Controllers;
 
 public partial class UserController
 {
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateUser(UserCreateDto dto)
     {
-        if (!ModelState.IsValid) {
+        if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
         }
         try
@@ -17,10 +20,6 @@ public partial class UserController
             var currentUser = await GetCurrentUserAsync();
             var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? string.Empty);
             return Ok(new { user.Id, user.Login });
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (ValidationException ex)
         {

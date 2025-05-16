@@ -1,10 +1,11 @@
-namespace UserManagement.Controllers;
-
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
+namespace UserManagement.Controllers;
 public partial class UserController
 {
+    [Authorize(Roles = "Admin")]
     [HttpPatch("{login}/restore")]
     public async Task<IActionResult> RestoreUser(string login)
     {
@@ -13,10 +14,6 @@ public partial class UserController
             var currentUser = await GetCurrentUserAsync();
             var restoredUser = await _userManager.RestoreUserAsync(login, currentUser?.Login ?? string.Empty);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (UserNotFoundException ex)
         {

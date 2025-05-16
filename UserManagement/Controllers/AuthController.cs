@@ -1,7 +1,7 @@
-// AuthController.cs
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
 using UserManagement.Services;
+using UserManagement.Exceptions;
 
 namespace UserManagement.Controllers;
 
@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
             var token = await _userManager.AuthenticateAsync(dto.Login, dto.Password);
             return Ok(new { Token = token });
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AuthenticationFailedException ex)
         {
             return Unauthorized(ex.Message);
         }
@@ -36,10 +36,4 @@ public class AuthController : ControllerBase
             return BadRequest("Authentication error");
         }
     }
-}
-
-public class LoginDto
-{
-    public required string Login { get; set; }
-    public required string Password { get; set; }
 }

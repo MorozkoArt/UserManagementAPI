@@ -67,7 +67,7 @@ public sealed class UserManager : IUserManager
     {
         var user = await GetByCredentialsAsync(login, password);
         if (user == null)
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new AuthenticationFailedException("Invalid credentials");
         
         return _jwtService.GenerateToken(user);
     }
@@ -75,13 +75,10 @@ public sealed class UserManager : IUserManager
     #region Create
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
-        return await Task.Run(async () =>
+        return await Task.Run(() =>
         {
             ArgumentNullException.ThrowIfNull(dto);
             ArgumentNullException.ThrowIfNull(createdBy);
-
-            if (!await IsAdminUserAsync(createdBy))
-                throw new AdminAccessException("Only admin can create users");
 
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ValidationException(loginError);
@@ -120,9 +117,6 @@ public sealed class UserManager : IUserManager
     #region Read
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
     {
-        if (!await IsAdminUserAsync(currentUser))
-            throw new AdminAccessException("Only admin can get all users");
-
         var allUsers = await GetAllActiveUsersAsync();
         var totalCount = allUsers.Count;
 
@@ -161,8 +155,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser)
     {
-        if (!await IsAdminUserAsync(currentUser))
-            throw new AdminAccessException("Only admin can get users older than specified age");
         var cutoffDate = DateTime.Today.AddYears(-age);
         return await Task.FromResult(
             _users.Values
@@ -190,9 +182,6 @@ public sealed class UserManager : IUserManager
         var cacheKey = $"user_{login}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            if (!await IsAdminUserAsync(currentUser))
-                throw new AdminAccessException("Only admin can get user by login");
-            
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
             return await GetByLoginAsync(login);
         });
@@ -309,9 +298,6 @@ public sealed class UserManager : IUserManager
     {
         ArgumentNullException.ThrowIfNull(revokedBy);
 
-        if (!await IsAdminUserAsync(revokedBy))
-            throw new AdminAccessException("Only admin can delete users");
-
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (softDelete)
@@ -336,9 +322,6 @@ public sealed class UserManager : IUserManager
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
         ArgumentNullException.ThrowIfNull(modifiedBy);
-
-        if (!await IsAdminUserAsync(modifiedBy))
-            throw new AdminAccessException("Only admin can restore users");
 
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models;
 using UserManagement.Models.Dtos;
@@ -7,6 +8,7 @@ namespace UserManagement.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public partial class UserController(IUserManager userManager, ILogger<UserController> logger) : ControllerBase
 {
     private readonly IUserManager _userManager = userManager;
@@ -14,7 +16,8 @@ public partial class UserController(IUserManager userManager, ILogger<UserContro
 
     private async Task<User?> GetCurrentUserAsync()
     {
-        return HttpContext.Items["UserLogin"] is string login ? await _userManager.GetByLoginAsync(login) : null;
+        var login = User.Identity?.Name;
+        return login != null ? await _userManager.GetByLoginAsync(login) : null;
     }
 
     private BadRequestObjectResult HandleError(Exception ex, string actionName)
