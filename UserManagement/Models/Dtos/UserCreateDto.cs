@@ -27,5 +27,5 @@ public class UserCreateDto
     [SwaggerSchema(Description = "Date in format YYYY-MM-DD")]
     [Range(typeof(DateTime), "1900-01-01", "2100-01-01", ErrorMessage = "Birthday must be between 1900 and 2100")]
     public DateTime? Birthday { get; set; }
-    public bool Admin { get; set; }
+    public bool Admin { get; set; } = false;
 }

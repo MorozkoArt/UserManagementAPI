@@ -75,11 +75,8 @@ public sealed class UserManager : IUserManager
     #region Create
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
-        return await Task.Run(() =>
+        return await Task.Run(async() =>
         {
-            ArgumentNullException.ThrowIfNull(dto);
-            ArgumentNullException.ThrowIfNull(createdBy);
-
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ValidationException(loginError);
 
@@ -89,6 +86,15 @@ public sealed class UserManager : IUserManager
             if (!nameValid) throw new ValidationException(nameError);
             var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
             if (!birthdayValid) throw new ValidationException(birthdayError);
+
+            if (dto.Admin)
+            {
+                var currentUser = await GetByLoginAsync(createdBy);
+                if (currentUser == null || !currentUser.Admin)
+                {
+                    throw new AdminAccessException();
+                }
+            }
 
             if (_users.ContainsKey(dto.Login))
                 throw new LoginAlreadyExistsException(dto.Login);

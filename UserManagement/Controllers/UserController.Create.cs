@@ -7,7 +7,7 @@ namespace UserManagement.Controllers;
 
 public partial class UserController
 {
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> CreateUser(UserCreateDto dto)
     {
@@ -18,12 +18,16 @@ public partial class UserController
         try
         {
             var currentUser = await GetCurrentUserAsync();
-            var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? string.Empty);
+            var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? "_System_");
             return Ok(new { user.Id, user.Login });
         }
         catch (ValidationException ex)
         {
             return BadRequest(ex.Message);
+        }
+        catch (AdminAccessException ex)
+        {
+            return Forbid(ex.Message);
         }
         catch (LoginAlreadyExistsException ex)
         {

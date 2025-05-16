@@ -7,16 +7,10 @@ namespace UserManagement.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController(IUserManager userManager, ILogger<AuthController> logger) : ControllerBase
 {
-    private readonly IUserManager _userManager;
-    private readonly ILogger<AuthController> _logger;
-
-    public AuthController(IUserManager userManager, ILogger<AuthController> logger)
-    {
-        _userManager = userManager;
-        _logger = logger;
-    }
+    private readonly IUserManager _userManager = userManager;
+    private readonly ILogger<AuthController> _logger = logger;
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)

@@ -25,10 +25,6 @@ public partial class UserController
                 TotalPages = result.TotalPages
             });
         }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetAllActiveUsers));
@@ -46,10 +42,6 @@ public partial class UserController
             return user == null
                 ? NotFound("User not found")
                 : Ok(MapToAdminDto(user));
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {
@@ -104,10 +96,6 @@ public partial class UserController
                 TotalCount = users.Count(),
                 TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
             });
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {

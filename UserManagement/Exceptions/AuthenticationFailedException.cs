@@ -1,7 +1,5 @@
 namespace UserManagement.Exceptions;
 
-public class AuthenticationFailedException : Exception
+public class AuthenticationFailedException(string message) : Exception(message)
 {
-    public AuthenticationFailedException(string message) 
-        : base(message) {}
 }
