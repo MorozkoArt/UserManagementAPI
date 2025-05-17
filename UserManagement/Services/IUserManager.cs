@@ -5,15 +5,13 @@ namespace UserManagement.Services;
 
 public interface IUserManager
 {
-    Task<bool> IsFoundUserAsync(string login);
-    Task<bool> IsYourAccountAsync(string currentlogin, string login);
     Task<string> AuthenticateAsync(string login, string password);
-    Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10);
+    Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10);
     Task<List<User>> GetAllActiveUsersAsync();
-    Task<List<User>> GetAllUsersAsync();
-    Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser);
+    Task<List<User>> GetUsersOlderThanAsync(int age);
+    Task<PaginatedResult<User>> GetUsersOlderPaginatedAsync(int age, int pageNumber = 1, int pageSize = 10);
     Task<User?> GetByLoginAsync(string login);
-    Task<User?> GetByLoginCachedAsync(string login, string currentUser);
+    Task<User> GetByLoginCachedAsync(string login);
     Task<User> GetCurrentUserAsync(string login);
     Task<User?> GetByCredentialsAsync(string login, string password);
     Task<User> CreateUserAsync(UserCreateDto dto, string createdBy);

@@ -42,23 +42,6 @@ public sealed class UserManager : IUserManager
         _logger.LogInformation("Admin user initialized");
     }
 
-
-    public async Task<bool> IsFoundUserAsync(string login)
-    {
-        var user = await GetByLoginAsync(login);
-        return user != null;
-    }
-    public async Task<bool> IsYourAccountAsync(string currentlogin, string login)
-    {
-        var currentUser = await GetByLoginAsync(currentlogin);
-        var userToUpdate = await GetByLoginAsync(login);
-        
-        if (currentUser == null || userToUpdate == null)
-            return false;
-
-        return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
-    }
-    
     public async Task<string> AuthenticateAsync(string login, string password)
     {
         var user = await GetByCredentialsAsync(login, password) ?? throw new AuthenticationFailedException();
@@ -113,7 +96,7 @@ public sealed class UserManager : IUserManager
     #endregion
 
     #region Read
-    public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
+    public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(int pageNumber = 1, int pageSize = 10)
     {
         var allUsers = await GetAllActiveUsersAsync();
         var totalCount = allUsers.Count;
@@ -140,24 +123,29 @@ public sealed class UserManager : IUserManager
         }) ?? [];
     }
 
-    public async Task<List<User>> GetAllUsersAsync()
-    {
-        return await _cache.GetOrCreateAsync(AllUsersCacheKey, entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
-            return Task.FromResult(_users.Values
-                .OrderBy(u => u.CreatedOn)
-                .ToList());
-        }) ?? [];
-    }
-
-    public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser)
+    public async Task<List<User>> GetUsersOlderThanAsync(int age)
     {
         var cutoffDate = DateTime.Today.AddYears(-age);
         return await Task.FromResult(
             _users.Values
                 .Where(u => u.Birthday.HasValue && u.Birthday.Value.Date <= cutoffDate)
-                .OrderBy(u => u.CreatedOn));
+                .OrderBy(u => u.CreatedOn)
+                .ToList())?? [];
+    }
+
+    public async Task<PaginatedResult<User>> GetUsersOlderPaginatedAsync(int age, int pageNumber = 1, int pageSize = 10)
+    {
+        var allUsers = await GetUsersOlderThanAsync(age);
+        var totalCount = allUsers.Count;
+
+        pageSize = Math.Min(pageSize, 100);
+
+        var items = allUsers
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new PaginatedResult<User>(items, pageNumber, pageSize, totalCount);
     }
 
     public async Task<User?> GetByLoginAsync(string login)
@@ -173,14 +161,14 @@ public sealed class UserManager : IUserManager
         return user;
     }
 
-    public async Task<User?> GetByLoginCachedAsync(string login, string currentUser)
+    public async Task<User> GetByLoginCachedAsync(string login)
     {
         var cacheKey = $"user_{login}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
-            return await GetByLoginAsync(login);
-        });
+            return await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
+        })?? throw new CacheNullReturnException();
     }
 
     public async Task<User?> GetByCredentialsAsync(string login, string password)
@@ -192,16 +180,13 @@ public sealed class UserManager : IUserManager
     }
     #endregion
 
-
     #region Update-1
     public async Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy)
     {
-        if (!await IsFoundUserAsync(modifiedBy))
-            throw new AuthenticationRequiredException();
-
+        var currentUser = await GetByLoginAsync(modifiedBy) ?? throw new AuthenticationRequiredException();
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
-        if (!await IsYourAccountAsync(modifiedBy, login))
+        if (!currentUser.Admin && (currentUser.Login != user.Login || !user.IsActive))
             throw new AccountUpdateForbiddenException();
 
         var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
@@ -229,12 +214,10 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdatePasswordAsync(string login, string newPassword, string modifiedBy)
     {
-        if (!await IsFoundUserAsync(modifiedBy))
-            throw new AuthenticationRequiredException();
-
+        var currentUser = await GetByLoginAsync(modifiedBy) ?? throw new AuthenticationRequiredException();
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
-        if (!await IsYourAccountAsync(modifiedBy, login))
+        if (!currentUser.Admin && (currentUser.Login != user.Login || !user.IsActive))
             throw new AccountUpdateForbiddenException();
 
         var (passValid, passError) = UserValidation.ValidatePassword(newPassword);
@@ -252,12 +235,10 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdateLoginAsync(string oldLogin, string newLogin, string modifiedBy)
     {
-        if (!await IsFoundUserAsync(modifiedBy))
-            throw new AuthenticationRequiredException();
-
+        var currentUser = await GetByLoginAsync(modifiedBy) ?? throw new AuthenticationRequiredException();
         var user = await GetByLoginAsync(oldLogin) ?? throw new UserNotFoundException(oldLogin);
 
-        if (!await IsYourAccountAsync(modifiedBy, oldLogin))
+        if (!currentUser.Admin && (currentUser.Login != user.Login || !user.IsActive))
             throw new AccountUpdateForbiddenException();
         
         var (loginValid, loginError) = UserValidation.ValidateLogin(newLogin, _users);

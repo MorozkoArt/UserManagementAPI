@@ -11,8 +11,8 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser?.Login ?? string.Empty);
+            var currentUser = User.Identity?.Name;
+            var restoredUser = await _userManager.RestoreUserAsync(login, currentUser ?? string.Empty);
             return Ok(new { restoredUser.Name, restoredUser.IsActive });
         }
         catch (UserNotFoundException ex)

@@ -17,12 +17,13 @@ public partial class UserController
         }
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? "_System_");
+            var currentUser = User.Identity?.Name;
+            var user = await _userManager.CreateUserAsync(dto, currentUser ?? "_System_");
             return Ok(new { user.Id, user.Login });
         }
         catch (Exception ex) when (ex is ValidationException or LoginAlreadyExistsException)
         {
+            _logger.LogError(ex, "Error: {Message}", ex.Message);
             return BadRequest(ex.Message);
         }
         catch (AdminAccessException)

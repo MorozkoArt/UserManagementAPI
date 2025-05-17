@@ -14,12 +14,6 @@ public partial class UserController(IUserManager userManager, ILogger<UserContro
     private readonly IUserManager _userManager = userManager;
     private readonly ILogger<UserController> _logger = logger;
 
-    private async Task<User?> GetCurrentUserAsync()
-    {
-        var login = User.Identity?.Name;
-        return login != null ? await _userManager.GetByLoginAsync(login) : null;
-    }
-
     private BadRequestObjectResult HandleError(Exception ex, string actionName)
     {
         _logger.LogError(ex, "Error in {Action}", actionName);

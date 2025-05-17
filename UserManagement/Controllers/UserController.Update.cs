@@ -16,8 +16,8 @@ public partial class UserController
         }
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser?.Login ?? string.Empty);
+            var currentUser = User.Identity?.Name;
+            var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser ?? string.Empty);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
@@ -48,8 +48,8 @@ public partial class UserController
         }
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser?.Login ?? string.Empty);
+            var currentUser = User.Identity?.Name;
+            await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser ?? string.Empty);
             return Ok(new { Message = "Password updated successfully" });
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
@@ -80,8 +80,8 @@ public partial class UserController
         }
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser?.Login ?? string.Empty);
+            var currentUser = User.Identity?.Name;
+            var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser ?? string.Empty);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
         }
 

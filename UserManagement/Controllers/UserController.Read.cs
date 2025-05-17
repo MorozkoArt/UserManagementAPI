@@ -12,8 +12,7 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var result = await _userManager.GetAllActiveUsersPaginatedAsync(currentUser?.Login ?? string.Empty, page, pageSize);
+            var result = await _userManager.GetAllActiveUsersPaginatedAsync(page, pageSize);
             var users = result.Items.Select(MapToAdminDto);
 
             return Ok(new
@@ -37,11 +36,16 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var user = await _userManager.GetByLoginCachedAsync(login, currentUser?.Login ?? string.Empty);
-            return user == null
-                ? NotFound("User not found")
-                : Ok(MapToAdminDto(user));
+            var user = await _userManager.GetByLoginCachedAsync(login);
+            return Ok(MapToAdminDto(user));
+        }
+        catch (UserNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (CacheNullReturnException ex)
+        {
+            return StatusCode(500, ex.Message);
         }
         catch (Exception ex)
         {
@@ -54,8 +58,8 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var user = await _userManager.GetCurrentUserAsync(currentUser?.Login ?? string.Empty);
+            var currentUser = User.Identity?.Name;
+            var user = await _userManager.GetCurrentUserAsync(currentUser ?? string.Empty);
 
             return Ok(new UserResponseDto
             {
@@ -81,20 +85,16 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            var users = await _userManager.GetUsersOlderThanAsync(age, currentUser?.Login ?? string.Empty);
-            var paginatedUsers = users
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(MapToAdminDto);
+            var result = await _userManager.GetUsersOlderPaginatedAsync(age, page, pageSize);
+            var users = result.Items.Select(MapToAdminDto);
 
             return Ok(new
             {
-                Data = paginatedUsers,
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = users.Count(),
-                TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
+                Data = users,
+                Page = result.PageNumber,
+                PageSize = result.PageSize,
+                TotalCount = result.TotalCount,
+                TotalPages = result.TotalPages
             });
         }
         catch (Exception ex)

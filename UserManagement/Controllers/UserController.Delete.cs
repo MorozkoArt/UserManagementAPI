@@ -12,8 +12,8 @@ public partial class UserController
     {
         try
         {
-            var currentUser = await GetCurrentUserAsync();
-            await _userManager.DeleteUserAsync(login, currentUser?.Login ?? string.Empty, softDelete);
+            var currentUser = User.Identity?.Name;
+            await _userManager.DeleteUserAsync(login, currentUser ?? string.Empty, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
         }
         catch (UserNotFoundException ex)
