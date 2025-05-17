@@ -46,5 +46,13 @@ public class ExampleSchemaFilter : ISchemaFilter
                 ["newPassword"] = new OpenApiString("SecurePass123!"),
             };
         }
+        else if (context.Type == typeof(LoginDto))
+        {
+            schema.Example = new OpenApiObject
+            {
+                ["Login"] = new OpenApiString("user123"),
+                ["Password"] = new OpenApiString("SecurePass123!"),
+            };
+        }
     }
 }

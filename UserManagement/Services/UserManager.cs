@@ -11,14 +11,16 @@ public sealed class UserManager : IUserManager
     private readonly Dictionary<string, User> _users = [];
     private readonly ILogger<UserManager> _logger;
     private readonly IMemoryCache _cache;
+    private readonly IJwtService  _jwtService;
     private const string AllActiveUsersCacheKey = "all_active_users";
     private const string AllUsersCacheKey = "all_users";
     private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
 
-    public UserManager(ILogger<UserManager> logger, IMemoryCache cache)
+    public UserManager(ILogger<UserManager> logger, IMemoryCache cache, IJwtService jwtService)
     {
         _logger = logger;
         _cache = cache;
+        _jwtService = jwtService;
         InitializeAdminUser();
     }
 
@@ -32,19 +34,15 @@ public sealed class UserManager : IUserManager
             Gender = 1,
             Birthday = null,
             Admin = true,
-            CreatedBy = "System",
-            ModifiedBy = "System"
+            CreatedBy = "_System_",
+            ModifiedBy = "_System_"
         };
 
         _users.Add(admin.Login, admin);
         _logger.LogInformation("Admin user initialized");
     }
 
-    public async Task<bool> IsAdminUserAsync(string login)
-    {
-        var user = await GetByLoginAsync(login);
-        return user != null && user.Admin;
-    }
+
     public async Task<bool> IsFoundUserAsync(string login)
     {
         var user = await GetByLoginAsync(login);
@@ -61,26 +59,34 @@ public sealed class UserManager : IUserManager
         return currentUser.Admin || (currentUser.Login == login && userToUpdate.IsActive);
     }
     
+    public async Task<string> AuthenticateAsync(string login, string password)
+    {
+        var user = await GetByCredentialsAsync(login, password) ?? throw new AuthenticationFailedException();
+        return _jwtService.GenerateToken(user);
+    }
+    
     #region Create
     public async Task<User> CreateUserAsync(UserCreateDto dto, string createdBy)
     {
-        return await Task.Run(async () =>
+        return await Task.Run(async() =>
         {
-            ArgumentNullException.ThrowIfNull(dto);
-            ArgumentNullException.ThrowIfNull(createdBy);
-
-            if (!await IsAdminUserAsync(createdBy))
-                throw new AdminAccessException("Only admin can create users");
-
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ValidationException(loginError);
-
             var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
             if (!passValid) throw new ValidationException(passError);
             var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
             if (!nameValid) throw new ValidationException(nameError);
             var (birthdayValid, birthdayError) = UserValidation.ValidateBirthday(dto.Birthday);
             if (!birthdayValid) throw new ValidationException(birthdayError);
+
+            if (dto.Admin)
+            {
+                var currentUser = await GetByLoginAsync(createdBy);
+                if (currentUser == null || !currentUser.Admin)
+                {
+                    throw new AdminAccessException();
+                }
+            }
 
             if (_users.ContainsKey(dto.Login))
                 throw new LoginAlreadyExistsException(dto.Login);
@@ -99,7 +105,7 @@ public sealed class UserManager : IUserManager
 
             _users.Add(user.Login, user);
             InvalidateCaches(user.Login);
-            
+
             _logger.LogInformation("User {Login} created by {CreatedBy}", user.Login, createdBy);
             return user;
         });
@@ -109,9 +115,6 @@ public sealed class UserManager : IUserManager
     #region Read
     public async Task<PaginatedResult<User>> GetAllActiveUsersPaginatedAsync(string currentUser, int pageNumber = 1, int pageSize = 10)
     {
-        if (!await IsAdminUserAsync(currentUser))
-            throw new AdminAccessException("Only admin can get all users");
-
         var allUsers = await GetAllActiveUsersAsync();
         var totalCount = allUsers.Count;
 
@@ -150,8 +153,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<IEnumerable<User>> GetUsersOlderThanAsync(int age, string currentUser)
     {
-        if (!await IsAdminUserAsync(currentUser))
-            throw new AdminAccessException("Only admin can get users older than specified age");
         var cutoffDate = DateTime.Today.AddYears(-age);
         return await Task.FromResult(
             _users.Values
@@ -172,16 +173,11 @@ public sealed class UserManager : IUserManager
         return user;
     }
 
-
-
     public async Task<User?> GetByLoginCachedAsync(string login, string currentUser)
     {
         var cacheKey = $"user_{login}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            if (!await IsAdminUserAsync(currentUser))
-                throw new AdminAccessException("Only admin can get user by login");
-            
             entry.AbsoluteExpirationRelativeToNow = _cacheDuration;
             return await GetByLoginAsync(login);
         });
@@ -200,9 +196,6 @@ public sealed class UserManager : IUserManager
     #region Update-1
     public async Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(dto);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -236,9 +229,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdatePasswordAsync(string login, string newPassword, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(newPassword);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -262,9 +252,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdateLoginAsync(string oldLogin, string newLogin, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(newLogin);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -296,11 +283,6 @@ public sealed class UserManager : IUserManager
     #region Delete
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
-        ArgumentNullException.ThrowIfNull(revokedBy);
-
-        if (!await IsAdminUserAsync(revokedBy))
-            throw new AdminAccessException("Only admin can delete users");
-
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (softDelete)
@@ -324,11 +306,6 @@ public sealed class UserManager : IUserManager
     #region Update-2 (Restore)
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
-        if (!await IsAdminUserAsync(modifiedBy))
-            throw new AdminAccessException("Only admin can restore users");
-
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         user.RevokedOn = null;

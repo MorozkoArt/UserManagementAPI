@@ -1,8 +1,13 @@
-using UserManagement.Middleware;
 using UserManagement.Services;
 using UserManagement.Utilities;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddJsonFile("appsettings.json");
+var jwtSettings = builder.Configuration.GetSection("Jwt");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -12,13 +17,14 @@ builder.Services.AddSwaggerGen(c =>
     c.EnableAnnotations();
     c.SchemaFilter<ExampleSchemaFilter>();
     
-    c.AddSecurityDefinition("basic", new()
+    c.AddSecurityDefinition("Bearer", new()
     {
         Name = "Authorization",
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-        Scheme = "basic",
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Basic Authorization header using the Bearer scheme."
+        Description = "JWT Authorization header using the Bearer scheme."
     });
     
     c.AddSecurityRequirement(new()
@@ -29,7 +35,7 @@ builder.Services.AddSwaggerGen(c =>
                 Reference = new()
                 {
                     Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "basic"
+                    Id = "Bearer"
                 }
             },
             Array.Empty<string>()
@@ -37,9 +43,30 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddSingleton<IJwtService, JwtService>();
 builder.Services.AddSingleton<IUserManager, UserManager>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidateAudience = true,
+        ValidAudience = jwtSettings["Audience"],
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
+    };
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
@@ -47,10 +74,12 @@ builder.Services.AddCors(options =>
         builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
+
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
 });
+
 builder.Services.AddLogging(loggingBuilder =>
 {
     loggingBuilder.AddConsole();
@@ -66,11 +95,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseMiddleware<BasicAuthMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseResponseCompression();
+
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 app.MapHealthChecks("/health");
 

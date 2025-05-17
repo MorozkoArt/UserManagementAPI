@@ -1,11 +1,12 @@
-namespace UserManagement.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
 using UserManagement.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
-
+namespace UserManagement.Controllers;
 public partial class UserController
 {
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetAllActiveUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
@@ -15,7 +16,7 @@ public partial class UserController
             var result = await _userManager.GetAllActiveUsersPaginatedAsync(currentUser?.Login ?? string.Empty, page, pageSize);
             var users = result.Items.Select(MapToAdminDto);
 
-            return Ok(new 
+            return Ok(new
             {
                 Data = users,
                 Page = result.PageNumber,
@@ -24,16 +25,13 @@ public partial class UserController
                 TotalPages = result.TotalPages
             });
         }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetAllActiveUsers));
         }
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpGet("{login}")]
     public async Task<IActionResult> GetUserByLogin(string login)
     {
@@ -41,20 +39,16 @@ public partial class UserController
         {
             var currentUser = await GetCurrentUserAsync();
             var user = await _userManager.GetByLoginCachedAsync(login, currentUser?.Login ?? string.Empty);
-            return user == null 
-                ? NotFound("User not found") 
+            return user == null
+                ? NotFound("User not found")
                 : Ok(MapToAdminDto(user));
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {
             return HandleError(ex, nameof(GetUserByLogin));
         }
     }
-
+    [Authorize]
     [HttpGet("self")]
     public async Task<IActionResult> GetCurrentUserInfo()
     {
@@ -71,11 +65,7 @@ public partial class UserController
                 IsActive = user.IsActive
             });
         }
-        catch (AuthenticationRequiredException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
-        catch (AccountInactiveException ex)
+        catch (Exception ex) when (ex is AuthenticationRequiredException or AccountInactiveException)
         {
             return Unauthorized(ex.Message);
         }
@@ -85,6 +75,7 @@ public partial class UserController
         }
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpGet("older-than/{age}")]
     public async Task<IActionResult> GetUsersOlderThan(int age, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
@@ -105,10 +96,6 @@ public partial class UserController
                 TotalCount = users.Count(),
                 TotalPages = (int)Math.Ceiling(users.Count() / (double)pageSize)
             });
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {

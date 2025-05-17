@@ -1,10 +1,12 @@
-namespace UserManagement.Controllers;
-
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
+
+namespace UserManagement.Controllers;
 public partial class UserController
 {
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{login}")]
     public async Task<IActionResult> DeleteUser(string login, [FromQuery] bool softDelete = true)
     {
@@ -13,10 +15,6 @@ public partial class UserController
             var currentUser = await GetCurrentUserAsync();
             await _userManager.DeleteUserAsync(login, currentUser?.Login ?? string.Empty, softDelete);
             return Ok(new { Message = softDelete ? "User soft deleted" : "User permanently deleted" });
-        }
-        catch (AdminAccessException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (UserNotFoundException ex)
         {

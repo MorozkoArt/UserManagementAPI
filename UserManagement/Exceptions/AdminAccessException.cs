@@ -3,7 +3,7 @@ namespace UserManagement.Exceptions;
 public class AdminAccessException : UnauthorizedAccessException
 {
     public AdminAccessException()
-        : base("Only an admin can fulfill this request") { }
+        : base("Only admins can create admin users") { }
 
     public AdminAccessException(string message)
         : base(message) { }
