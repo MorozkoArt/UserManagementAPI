@@ -1,7 +1,7 @@
 using UserManagement.Models;
 using UserManagement.Models.Dtos;
 
-namespace UserManagement.Services;
+namespace UserManagement.Services.Interfaces;
 
 public interface IUserManager
 {

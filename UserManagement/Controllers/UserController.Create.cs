@@ -23,12 +23,11 @@ public partial class UserController
         }
         catch (Exception ex) when (ex is ValidationException or LoginAlreadyExistsException)
         {
-            _logger.LogError(ex, "Error: {Message}", ex.Message);
-            return BadRequest(ex.Message);
+            return HandleBadRequest(ex);
         }
-        catch (AdminAccessException)
+        catch (AdminAccessException ex)
         {
-            return Forbid();
+            return HandleForbid(ex);
         }
         catch (Exception ex)
         {

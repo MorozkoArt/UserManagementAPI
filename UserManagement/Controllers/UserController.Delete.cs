@@ -18,7 +18,7 @@ public partial class UserController
         }
         catch (UserNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return HandleNotFound(ex);
         }
         catch (Exception ex)
         {

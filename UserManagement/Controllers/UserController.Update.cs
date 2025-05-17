@@ -22,15 +22,15 @@ public partial class UserController
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
-            return Unauthorized(ex.Message);
+            return HandleUnauthorized(ex);
         }
         catch (UserNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return HandleNotFound(ex);
         }
         catch (ValidationException ex)
         {
-            return BadRequest(ex.Message);
+            return HandleBadRequest(ex);
         }
         catch (Exception ex)
         {
@@ -54,15 +54,15 @@ public partial class UserController
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
-            return Unauthorized(ex.Message);
+            return HandleUnauthorized(ex);
         }
         catch (UserNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return HandleNotFound(ex);
         }
         catch (ValidationException ex)
         {
-            return BadRequest(ex.Message);
+            return HandleBadRequest(ex);
         }
         catch (Exception ex)
         {
@@ -87,15 +87,15 @@ public partial class UserController
 
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
-            return Unauthorized(ex.Message);
+            return HandleUnauthorized(ex);
         }
         catch (Exception ex) when (ex is ValidationException or LoginAlreadyExistsException)
         {
-            return BadRequest(ex.Message);
+            return HandleBadRequest(ex);
         }
         catch (UserNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return HandleNotFound(ex);
         }
         catch (Exception ex)
         {

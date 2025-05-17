@@ -2,7 +2,6 @@
 
 ![.NET Version](https://img.shields.io/badge/.NET-9.0-blue)
 ![Swagger Support](https://img.shields.io/badge/Swagger-UI-green)
-![License](https://img.shields.io/badge/license-MIT-brightgreen)
 
 ## 📝 Описание
 
@@ -14,16 +13,19 @@ RESTful Web API для управления пользователями с по
 - Валидацию входных данных
 - Полную документацию через Swagger UI
 
-## 🚀 Начало работы
+## Описание проекта
 
-### Требования
+### Структура проекта
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- IDE (Visual Studio 2022, VS Code или JetBrains Rider)
-
-### Установка
-
-```bash
-git clone https://github.com/MorozkoArt/UserManagementAPI.git
-cd UserManagementAPI
-dotnet restore
+```plaintext
+📂UserManagement/
+├──📂Controllers/                  # Логика приложения
+├──📂Exceptions/                   # Генерация файлов
+├──📂Models/                       # Модели данных
+├──📂Services/                     # Парсер входных данных
+├──📂Utilities/                    # Вспомогательные функции
+├──📄appsettings.Development.json  # Вспомогательные функции
+├──📄appsettings.json              # Вспомогательные функции
+├──📄UserManagement.http           # Вспомогательные функции
+└──📄Program.cs                    # Вспомогательные функции
+```

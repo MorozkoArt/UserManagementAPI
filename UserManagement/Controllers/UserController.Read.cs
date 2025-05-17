@@ -41,10 +41,11 @@ public partial class UserController
         }
         catch (UserNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return HandleNotFound(ex);
         }
         catch (CacheNullReturnException ex)
         {
+            _logger.LogError("Error: {Message}", ex.Message);
             return StatusCode(500, ex.Message);
         }
         catch (Exception ex)
@@ -52,6 +53,7 @@ public partial class UserController
             return HandleError(ex, nameof(GetUserByLogin));
         }
     }
+
     [Authorize]
     [HttpGet("self")]
     public async Task<IActionResult> GetCurrentUserInfo()
@@ -71,7 +73,7 @@ public partial class UserController
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException or AccountInactiveException)
         {
-            return Unauthorized(ex.Message);
+            return HandleUnauthorized(ex);
         }
         catch (Exception ex)
         {

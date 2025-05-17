@@ -3,6 +3,7 @@ using UserManagement.Models;
 using UserManagement.Models.Dtos;
 using UserManagement.Utilities;
 using UserManagement.Exceptions;
+using UserManagement.Services.Interfaces;
 
 namespace UserManagement.Services;
 

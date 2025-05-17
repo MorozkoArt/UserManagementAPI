@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
-using UserManagement.Services;
 using UserManagement.Exceptions;
+using UserManagement.Services.Interfaces;
+
 
 namespace UserManagement.Controllers;
 
