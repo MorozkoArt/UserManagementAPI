@@ -65,7 +65,7 @@ public partial class UserController
                 IsActive = user.IsActive
             });
         }
-        catch (AccountInactiveException ex)
+        catch (Exception ex) when (ex is AuthenticationRequiredException or AccountInactiveException)
         {
             return Unauthorized(ex.Message);
         }

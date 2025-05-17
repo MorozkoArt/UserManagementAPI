@@ -43,7 +43,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddSingleton<JwtService>();
+builder.Services.AddSingleton<IJwtService, JwtService>();
 builder.Services.AddSingleton<IUserManager, UserManager>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHealthChecks();

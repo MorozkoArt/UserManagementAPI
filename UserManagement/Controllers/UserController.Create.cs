@@ -21,17 +21,13 @@ public partial class UserController
             var user = await _userManager.CreateUserAsync(dto, currentUser?.Login ?? "_System_");
             return Ok(new { user.Id, user.Login });
         }
-        catch (ValidationException ex)
+        catch (Exception ex) when (ex is ValidationException or LoginAlreadyExistsException)
         {
             return BadRequest(ex.Message);
         }
         catch (AdminAccessException)
         {
             return Forbid();
-        }
-        catch (LoginAlreadyExistsException ex)
-        {
-            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {

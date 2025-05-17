@@ -20,7 +20,7 @@ public partial class UserController
             var updatedUser = await _userManager.UpdateUserAsync(login, dto, currentUser?.Login ?? string.Empty);
             return Ok(new { updatedUser.Name, updatedUser.Gender, updatedUser.Birthday });
         }
-        catch (AuthenticationRequiredException ex)
+        catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
             return Unauthorized(ex.Message);
         }
@@ -28,17 +28,13 @@ public partial class UserController
         {
             return NotFound(ex.Message);
         }
-        catch (AccountUpdateForbiddenException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
         catch (ValidationException ex)
         {
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            return HandleError(ex, nameof(UpdateUser));
+            return HandleError(ex, nameof(UpdatePassword));
         }
     }
 
@@ -56,17 +52,13 @@ public partial class UserController
             await _userManager.UpdatePasswordAsync(login, dto.NewPassword, currentUser?.Login ?? string.Empty);
             return Ok(new { Message = "Password updated successfully" });
         }
-        catch (AuthenticationRequiredException ex)
+        catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
             return Unauthorized(ex.Message);
         }
         catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
-        }
-        catch (AccountUpdateForbiddenException ex)
-        {
-            return Unauthorized(ex.Message);
         }
         catch (ValidationException ex)
         {
@@ -92,25 +84,18 @@ public partial class UserController
             var updatedUser = await _userManager.UpdateLoginAsync(login, dto.NewLogin, currentUser?.Login ?? string.Empty);
             return Ok(new { OldLogin = login, NewLogin = updatedUser.Login });
         }
-        catch (AuthenticationRequiredException ex)
+
+        catch (Exception ex) when (ex is AuthenticationRequiredException or AccountUpdateForbiddenException)
         {
             return Unauthorized(ex.Message);
+        }
+        catch (Exception ex) when (ex is ValidationException or LoginAlreadyExistsException)
+        {
+            return BadRequest(ex.Message);
         }
         catch (UserNotFoundException ex)
         {
             return NotFound(ex.Message);
-        }
-        catch (AccountUpdateForbiddenException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
-        catch (ValidationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (LoginAlreadyExistsException ex)
-        {
-            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
