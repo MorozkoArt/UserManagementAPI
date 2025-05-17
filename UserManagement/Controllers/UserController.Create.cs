@@ -25,9 +25,9 @@ public partial class UserController
         {
             return BadRequest(ex.Message);
         }
-        catch (AdminAccessException ex)
+        catch (AdminAccessException)
         {
-            return Forbid(ex.Message);
+            return Forbid();
         }
         catch (LoginAlreadyExistsException ex)
         {

@@ -34,19 +34,15 @@ public sealed class UserManager : IUserManager
             Gender = 1,
             Birthday = null,
             Admin = true,
-            CreatedBy = "System",
-            ModifiedBy = "System"
+            CreatedBy = "_System_",
+            ModifiedBy = "_System_"
         };
 
         _users.Add(admin.Login, admin);
         _logger.LogInformation("Admin user initialized");
     }
 
-    public async Task<bool> IsAdminUserAsync(string login)
-    {
-        var user = await GetByLoginAsync(login);
-        return user != null && user.Admin;
-    }
+
     public async Task<bool> IsFoundUserAsync(string login)
     {
         var user = await GetByLoginAsync(login);
@@ -65,10 +61,7 @@ public sealed class UserManager : IUserManager
     
     public async Task<string> AuthenticateAsync(string login, string password)
     {
-        var user = await GetByCredentialsAsync(login, password);
-        if (user == null)
-            throw new AuthenticationFailedException("Invalid credentials");
-        
+        var user = await GetByCredentialsAsync(login, password) ?? throw new AuthenticationFailedException();
         return _jwtService.GenerateToken(user);
     }
     
@@ -79,7 +72,6 @@ public sealed class UserManager : IUserManager
         {
             var (loginValid, loginError) = UserValidation.ValidateLogin(dto.Login, _users);
             if (!loginValid) throw new ValidationException(loginError);
-
             var (passValid, passError) = UserValidation.ValidatePassword(dto.Password);
             if (!passValid) throw new ValidationException(passError);
             var (nameValid, nameError) = UserValidation.ValidateName(dto.Name);
@@ -181,8 +173,6 @@ public sealed class UserManager : IUserManager
         return user;
     }
 
-
-
     public async Task<User?> GetByLoginCachedAsync(string login, string currentUser)
     {
         var cacheKey = $"user_{login}";
@@ -206,9 +196,6 @@ public sealed class UserManager : IUserManager
     #region Update-1
     public async Task<User> UpdateUserAsync(string login, UserUpdateDto dto, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(dto);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -242,9 +229,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdatePasswordAsync(string login, string newPassword, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(newPassword);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -268,9 +252,6 @@ public sealed class UserManager : IUserManager
 
     public async Task<User> UpdateLoginAsync(string oldLogin, string newLogin, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(newLogin);
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         if (!await IsFoundUserAsync(modifiedBy))
             throw new AuthenticationRequiredException();
 
@@ -302,8 +283,6 @@ public sealed class UserManager : IUserManager
     #region Delete
     public async Task DeleteUserAsync(string login, string revokedBy, bool softDelete = true)
     {
-        ArgumentNullException.ThrowIfNull(revokedBy);
-
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         if (softDelete)
@@ -327,8 +306,6 @@ public sealed class UserManager : IUserManager
     #region Update-2 (Restore)
     public async Task<User> RestoreUserAsync(string login, string modifiedBy)
     {
-        ArgumentNullException.ThrowIfNull(modifiedBy);
-
         var user = await GetByLoginAsync(login) ?? throw new UserNotFoundException(login);
 
         user.RevokedOn = null;
