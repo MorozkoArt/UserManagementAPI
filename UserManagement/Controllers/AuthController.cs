@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using UserManagement.Models.Dtos;
 using UserManagement.Exceptions;
 using UserManagement.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace UserManagement.Controllers;
@@ -13,6 +14,7 @@ public class AuthController(IUserManager userManager, ILogger<AuthController> lo
     private readonly IUserManager _userManager = userManager;
     private readonly ILogger<AuthController> _logger = logger;
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
